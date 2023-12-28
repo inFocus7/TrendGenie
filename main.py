@@ -46,7 +46,7 @@ def add_blurred_shadow(draw, image_pil, text, position, font, shadow_color=(0, 0
 
 # Function to add text to an image with custom font, size, and wrapping
 def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 255), shadow_color=(255, 255, 255),
-             shadow_radius=None, is_bottom=False, max_width=None, background=False, background_color=(0, 0, 0, 255)):
+             shadow_radius=None, max_width=None, background=False, background_color=(0, 0, 0, 255)):
     # Convert OpenCV image to PIL image
     image_pil = Image.fromarray(image)
     draw = ImageDraw.Draw(image_pil)
@@ -60,8 +60,6 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
         wrapped_text = text
 
     lines = wrapped_text.split('\n')
-    if is_bottom:
-        lines = lines[::-1]  # Reverse the order of lines for bottom alignment
 
     y_offset = 0
     max_line_width = 0  # Keep track of the widest line
@@ -72,10 +70,8 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
         total_height += line_height
 
         text_x = (img_width - line_width) / 2  # Adjusted to use numpy width
-        if is_bottom:
-            line_y = position - y_offset - line_height
-        else:
-            line_y = position + y_offset
+        line_y = position + y_offset
+        y_offset += (line_height + 3)
 
         if background:
             (text_x, line_y), _ = add_background(image_pil, draw, (text_x, line_y), line, font, fill_color=background_color, border_radius=10)
@@ -86,7 +82,7 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
                                blur_radius=shadow_radius)
 
         draw.text((text_x, line_y), line, font=font, fill=font_color)
-        y_offset += (line_height + 3)  # Increment or decrement y_offset for next line depending on alignment
+        # y_offset += (line_height + 3)  # Increment or decrement y_offset for next line depending on alignment
 
     return np.array(image_pil), (max_line_width, total_height)
 
@@ -96,25 +92,25 @@ for item in data:
     # Read the image
     img_path = item["image"]
     img = cv2.imread("images/input/" + img_path, cv2.IMREAD_UNCHANGED)  # Ensure to use correct path to images
-
+    rating_offset = 15
+    text_offset = 30
     if img is not None:
         # Resize image to 1080x1920
         img = cv2.resize(img, (1080, 1920), interpolation=cv2.INTER_AREA)
 
         # Calculate positions for the text
         top_center = int(img.shape[0] * 0.13)
-        bottom_center = int(img.shape[0] * 0.81)
+        bottom_center = int(img.shape[0] * 0.70)
 
         # Add month and rating at the top center, one above the other
         img, (_, month_height) = add_text(img, item["month"], top_center, font_path, 142, shadow_radius=4)
-        img, (_, _) = add_text(img, f'Comfortability: {item["rating"]}%', top_center + month_height + 12, font_path, 54,
+        img, (_, _) = add_text(img, f'Comfortability: {item["rating"]}%', top_center + month_height + rating_offset, font_path, 54,
                                font_color=(216, 203, 170), shadow_radius=5, shadow_color=(0, 0, 0), background=True, background_color=(0,0,0,80))
 
         # Add name and description at the bottom center, one above the other
-        img, (_, name_height) = add_text(img, item["name"], bottom_center, font_path, 112, is_bottom=True,
+        img, (_, name_height) = add_text(img, item["name"], bottom_center, font_path, 112,
                                          max_width=15, shadow_radius=4)
-        img, (_, _) = add_text(img, f'"{item["description"]}"', bottom_center + 225, font_path, 42,
-                               is_bottom=True,
+        img, (_, _) = add_text(img, f'"{item["description"]}"', bottom_center + name_height + text_offset, font_path, 42,
                                max_width=43, shadow_radius=4)  # Adjust for wrapped text
 
         # Convert back to OpenCV image and save
