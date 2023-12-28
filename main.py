@@ -13,7 +13,9 @@ with open('list.json') as file:
 
 def add_background(image_pil, draw, position, text, font, padding=(15, 5), fill_color=(0, 0, 0, 255), border_radius=0):
     # Calculate width and height of text with padding
-    text_width, text_height = draw.textsize(text, font=font)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
     x1 = position[0] - padding[0]  # left
     y1 = position[1] - padding[1]  # top
     x2 = x1 + text_width + 2 * padding[0]  # right
@@ -65,13 +67,15 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
     max_line_width = 0  # Keep track of the widest line
     total_height = 0  # Accumulate total height of text block
     for i, line in enumerate(lines):
-        line_width, line_height = draw.textsize(line, font=font)
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_width = bbox[2] - bbox[0]
+        line_height = bbox[3] - bbox[1]
         max_line_width = max(max_line_width, line_width)
         total_height += line_height
 
         text_x = (img_width - line_width) / 2  # Adjusted to use numpy width
         line_y = position + y_offset
-        y_offset += (line_height + 3)
+        y_offset += (line_height + 6)
 
         if background:
             (text_x, line_y), _ = add_background(image_pil, draw, (text_x, line_y), line, font, fill_color=background_color, border_radius=10)
@@ -92,28 +96,30 @@ for item in data:
     # Read the image
     img_path = item["image"]
     img = cv2.imread("images/input/" + img_path, cv2.IMREAD_UNCHANGED)  # Ensure to use correct path to images
-    rating_offset = 15
-    text_offset = 30
+    rating_offset = 34
+    text_offset = 49
     if img is not None:
         # Resize image to 1080x1920
         img = cv2.resize(img, (1080, 1920), interpolation=cv2.INTER_AREA)
+        print(f"Processing {img_path}...")
 
         # Calculate positions for the text
         top_center = int(img.shape[0] * 0.13)
         bottom_center = int(img.shape[0] * 0.70)
 
         # Add month and rating at the top center, one above the other
-        img, (_, month_height) = add_text(img, item["month"], top_center, font_path, 142, shadow_radius=4)
-        img, (_, _) = add_text(img, f'Comfortability: {item["rating"]}%', top_center + month_height + rating_offset, font_path, 54,
+        img, (_, month_height) = add_text(img, item["month"], top_center, font_path, 145, shadow_radius=4)
+        img, (_, _) = add_text(img, f'Comfortability: {item["rating"]}%', top_center + month_height + rating_offset, font_path, 55,
                                font_color=(216, 203, 170), shadow_radius=5, shadow_color=(0, 0, 0), background=True, background_color=(0,0,0,80))
 
         # Add name and description at the bottom center, one above the other
-        img, (_, name_height) = add_text(img, item["name"], bottom_center, font_path, 112,
+        img, (_, name_height) = add_text(img, item["name"], bottom_center, font_path, 117,
                                          max_width=15, shadow_radius=4)
         img, (_, _) = add_text(img, f'"{item["description"]}"', bottom_center + name_height + text_offset, font_path, 42,
                                max_width=43, shadow_radius=4)  # Adjust for wrapped text
 
         # Convert back to OpenCV image and save
         cv2.imwrite("images/output/" + f'{item["month"]}.png', img)
+        print(f"Modified and saved as {item['month']}.png")
     else:
         print(f"Image {img_path} not found.")
