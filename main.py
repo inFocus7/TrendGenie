@@ -113,7 +113,7 @@ for item in data:
         # Add name and description at the bottom center, one above the other
         img, (_, name_height) = add_text(img, item["name"], bottom_center, font_path, 112, is_bottom=True,
                                          max_width=15, shadow_radius=4)
-        img, (_, _) = add_text(img, f'"{item["description"]}"', bottom_center + name_height + 36, font_path, 42,
+        img, (_, _) = add_text(img, f'"{item["description"]}"', bottom_center + 225, font_path, 42,
                                is_bottom=True,
                                max_width=43, shadow_radius=4)  # Adjust for wrapped text
 
