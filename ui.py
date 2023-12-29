@@ -176,6 +176,36 @@ def get_rgba(color, opacity):
     return color[0], color[1], color[2], alpha
 
 
+def validate_json(json_file):
+    if not json_file:
+        gr.Warning("No JSON file uploaded.")
+        return
+
+    with open(json_file) as file:
+        json_data = json.load(file)
+
+    # Make sure that the JSON is a list
+    if not isinstance(json_data, list):
+        gr.Warning("JSON is not a list.")
+        return
+
+    if len(json_data) == 0:
+        gr.Warning("JSON is empty.")
+        return
+
+    # Make sure that the JSON has the required fields
+    required_fields = ["image"]
+    warnings = 0
+    for index, item in enumerate(json_data):
+        for field in required_fields:
+            if field not in item:
+                gr.Warning(f"JSON is missing an important field '{field}' at item index {index}.")
+                warnings += 1
+
+    if warnings == 0:
+        gr.Info("JSON is valid!")
+
+
 # this is maybe the ugliest code I've written, but gradio inputs didn't allow me to pass in a class, namedtuple, or
 # tuple to clean this up. Need to find a better/cleaner way to do this.
 def process(image_files, json_file,
@@ -204,7 +234,11 @@ def process(image_files, json_file,
     with open(json_file) as file:
         json_data = json.load(file)
 
-    json_dict = {item["image"]: item for item in json_data}
+    # We skip any entries that don't have an image field.
+    # TODO: Allow for json validation. Ex. Add a button used to validate the list has all the required fields
+    #  ('image' for now, as it's necessary for referencing). It  should be a separate button/step so that processing
+    #  isn't blocked and no need to slow down by adding validation on every process.
+    json_dict = {item["image"]: item for item in json_data if "image" in item}
 
     for image_file in image_files:
         img_name = os.path.basename(image_file.name)
@@ -266,7 +300,9 @@ with gr.Blocks() as demo:
             gr.Markdown("# Input")
             with gr.Row(equal_height=False):
                 input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
-                input_json = gr.File(file_types=[".json"], file_count="single", label="Upload JSON", interactive=True)
+                with gr.Column():
+                    input_json = gr.File(file_types=[".json"], file_count="single", label="Upload JSON", interactive=True)
+                    validate_json_button = gr.Button("Validate JSON", variant="secondary")
             with gr.Accordion("Important Notes", open=False):
                 gr.Markdown(
                     "When using the automatic JSON parser, make sure that the number of images and the number of "
@@ -309,6 +345,7 @@ with gr.Blocks() as demo:
                                           mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
                                           rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
                                           ], outputs=[output_preview])
+    validate_json_button.click(validate_json, inputs=[input_json], outputs=[])
     save_button.click(save_to_disk, inputs=[], outputs=[])
     reset_parameters_button.click(reset_parameters, inputs=[], outputs=[])
 
