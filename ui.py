@@ -11,8 +11,8 @@ from datetime import datetime
 
 # TODO: Add support to save a template for later use.
 #   This would allow for multiple saved templates for quick style switching.
-# TODO: Investigate why the generated images are a different color.
-#    ex. january fire is blue-ish instead of orange-ish.
+# TODO: Look into why saving directly from gallery doesn't process the color correctly.
+#  Could be due to color mode differences between PIL and OpenCV...
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -119,13 +119,15 @@ def add_blurred_shadow(image_pil, text, position, font, shadow_color=(0, 0, 0), 
 
 
 # Function to add text to an image with custom font, size, and wrapping
-def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 255), shadow_color=(255, 255, 255),
+def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 255, 255), shadow_color=(255, 255, 255),
              shadow_radius=None, max_width=None, show_background=False, show_shadow=False,
              background_color=(0, 0, 0, 255)):
     # Convert OpenCV image to PIL image
-    image_pil = Image.fromarray(image)
-    draw = ImageDraw.Draw(image_pil)
+    image_pil = Image.fromarray(image).convert("RGBA")
+
+    txt_layer = Image.new('RGBA', image_pil.size, (255, 255, 255, 0))
     font = ImageFont.truetype(font_path, font_size)
+    draw = ImageDraw.Draw(txt_layer)
 
     img_width, img_height = image.shape[1], image.shape[0]
 
@@ -161,11 +163,13 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
 
         draw.text((text_x, line_y), line, font=font, fill=font_color)
 
+    image_pil = Image.alpha_composite(image_pil, txt_layer)
     return np.array(image_pil), (max_line_width, total_height)
 
 
 def process_image(filepath):
     img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA) # Convert to RGBA for PIL usage
     return cv2.resize(img, (1080, 1920), interpolation=cv2.INTER_AREA)
 
 
@@ -244,7 +248,7 @@ def process(image_files, json_file,
         print("No images uploaded.")
         return
 
-    if False: # TODO: Unskip in future
+    if False:  # TODO: Unskip in future
         print(f"""Beginning processing with the following parameters...
         {print_parameters("Name", nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo)}
         {print_parameters("Description", dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo)}
@@ -280,7 +284,6 @@ def process(image_files, json_file,
         top_center = int(img.shape[0] * 0.13)
         bottom_center = int(img.shape[0] * 0.70)
 
-        # TODO Investigate why the alpha channel for the font text/fill is not working.
         # Add month and rating at the top center, one above the other
         img, (_, month_height) = add_text(img, item["month"], top_center, mff, font_size=mfs,
                                           font_color=get_rgba(mfc, mfo),
@@ -293,7 +296,8 @@ def process(image_files, json_file,
                                show_background=rbe, background_color=get_rgba(rbc, rbo))
 
         # Add name and description at the bottom center, one above the other
-        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, font_size=nfs, font_color=get_rgba(nfc, nfo),
+        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, font_size=nfs,
+                                         font_color=get_rgba(nfc, nfo),
                                          max_width=15,
                                          show_shadow=nse, shadow_radius=nsr, shadow_color=get_rgba(nsc, nso),
                                          show_background=nbe, background_color=get_rgba(nbc, nbo))
@@ -349,7 +353,8 @@ with gr.Blocks() as demo:
     with gr.Tab("Listicle Template"):
         gr.Markdown("Create images in the style of those 'Your birth month is your ___' TikToks.")
 
-        # TODO: Add support for manual creation. Possibly another tab? One for manual (one-by-one), one for automatic (json parser).
+        # TODO: Add support for manual creation. Possibly another tab? One for manual (one-by-one), one for automatic
+        #  (json parser).
         with gr.Column():
             gr.Markdown("# Input")
             with gr.Row(equal_height=False):
@@ -383,24 +388,29 @@ with gr.Blocks() as demo:
                 gr.Markdown("# Parameters")
                 with gr.Row(equal_height=False):
                     _, _, (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters("Name",
-                                                                                                          default_font_size=117)
-                    _, _, (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters("Description",
-                                                                                                          default_font_size=42)
+                                                                                                                default_font_size=117)
+                    _, _, (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters(
+                        "Description",
+                        default_font_size=42)
                 with gr.Row(equal_height=False):
                     _, _, (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters("Month",
-                                                                                                          default_font_size=145)
+                                                                                                                default_font_size=145)
+
+
                     def rating_text_input_fn():
                         return gr.Dropdown(["Comfortability", "Survivability"],
-                                                         label="Rating Text", value="Comfortability", interactive=True,
-                                                         allow_custom_value=True)
-                    rating_text, _, (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = image_editor_parameters("Rating",
-                                                                                                          default_font_size=55,
-                                                                                                          pre_opt_render_fn=rating_text_input_fn)
+                                           label="Rating Text", value="Comfortability", interactive=True,
+                                           allow_custom_value=True)
+
+
+                    rating_text, _, (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (
+                    rbe, rbc, rbo) = image_editor_parameters("Rating",
+                                                             default_font_size=55,
+                                                             pre_opt_render_fn=rating_text_input_fn)
 
             with gr.Column(scale=1):
                 gr.Markdown("# Output")
                 output_preview = gr.Gallery(label="Previews")
-                # TODO: Only show if output is not empty (images have been generated).
                 with gr.Group():
                     image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png", interactive=True)
                     save_button = gr.Button("Save to Disk", variant="primary")
