@@ -120,6 +120,6 @@ for item in data:
 
         # Convert back to OpenCV image and save
         cv2.imwrite("images/output/" + f'{item["month"]}.png', img)
-        print(f"Modified and saved as {item['month']}.png")
+        print(f"Modified and saved as {item['month']}.png\n")
     else:
         print(f"Image {img_path} not found.")

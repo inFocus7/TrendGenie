@@ -2,3 +2,5 @@ fonts/
 images/
 
 .idea
+
+__pycache__/
