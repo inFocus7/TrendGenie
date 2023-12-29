@@ -199,23 +199,21 @@ def process(image_files, json_file,
 
     images = []
 
-    # Create a dictionary mapping the file name (after last /) to the file path. This is used to reference the images in
-    # O(1) time (after this op).
-    image_dict = {os.path.basename(image_file.name): image_file.name for image_file in image_files}
     rating_offset = 34
     text_offset = 49
     with open(json_file) as file:
         json_data = json.load(file)
 
-    # TODO: Use the images as source of truth for the number of images, not the JSON.
-    for item in json_data:
-        img_name = item["image"]
-        if img_name not in image_dict:
-            print(f"Reference to image {img_name} not found. Make sure the image is uploaded using the same name.")
+    json_dict = {item["image"]: item for item in json_data}
+
+    for image_file in image_files:
+        img_name = os.path.basename(image_file.name)
+        if img_name not in json_dict:
+            gr.Warning(f"Image {img_name} not found in the JSON list. Make sure the JSON contains a reference to this image.")
             continue
 
-        img_file = image_dict[img_name]
-        img = process_image(img_file)
+        img = process_image(image_file.name)
+        item = json_dict[img_name]
 
         # Calculate positions for the text
         top_center = int(img.shape[0] * 0.13)
