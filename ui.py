@@ -13,7 +13,6 @@ from datetime import datetime
 #   This would allow for multiple saved templates for quick style switching.
 # TODO: Investigate why the generated images are a different color.
 #    ex. january fire is blue-ish instead of orange-ish.
-# TODO: Add support for updating the rating text (ex. "Comforability", "Survivability", etc.)
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -310,6 +309,10 @@ def process(image_files, json_file,
 
 
 def save_to_disk(images, image_type, dir="images/output"):
+    if not images:
+        gr.Warning("No images to save.")
+        return
+
     date = datetime.now().strftime("%m%d%Y")
 
     dir = f"{dir}/{date}"
