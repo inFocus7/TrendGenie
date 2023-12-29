@@ -13,6 +13,7 @@ from datetime import datetime
 #   This would allow for multiple saved templates for quick style switching.
 # TODO: Investigate why the generated images are a different color.
 #    ex. january fire is blue-ish instead of orange-ish.
+# TODO: Add support for updating the rating text (ex. "Comforability", "Survivability", etc.)
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -32,7 +33,8 @@ def color_picker_with_opacity():
     with gr.Group():
         with gr.Row():
             color = gr.ColorPicker(label="Font Color", info=f'The color of the text.', scale=1)
-            opacity = gr.Slider(0, 100, value=100, label="Opacity", info=f'How opaque the object is. 0 = transparent, 100 = solid.', scale=2)
+            opacity = gr.Slider(0, 100, value=100, label="Opacity",
+                                info=f'How opaque the object is. 0 = transparent, 100 = solid.', scale=2)
 
     return color, opacity
 
@@ -48,10 +50,15 @@ def add_visibility(checkbox, group):
     )
 
 
-def image_editor_parameters(name, default_font_size=55):
+def image_editor_parameters(name, default_font_size=55, pre_opt_render_fn=None, post_opt_render_fn=None):
+    pre_opt = None
+    post_opt = None
     with gr.Accordion(label=name):
         with gr.Column():
             font_font = gr.Dropdown(font_names, value=font_names[0], label="Font", info=f'The font used for the text.')
+            if pre_opt_render_fn:
+                with gr.Group():
+                    pre_opt = pre_opt_render_fn()
             with gr.Group():
                 font_color, font_opacity = color_picker_with_opacity()
                 font_size = gr.Number(default_font_size, label="Font Size", info=f'The size of the font.')
@@ -62,15 +69,17 @@ def image_editor_parameters(name, default_font_size=55):
                     drop_shadow_color, drop_shadow_opacity = color_picker_with_opacity()
                     drop_shadow_radius = gr.Number(0, label="Shadow Radius", info=f'The radius of the drop shadow.')
                     add_visibility(drop_shadow_checkbox, additional_options)
-
             with gr.Group():
                 background_checkbox = gr.Checkbox(False, label="Enable",
                                                   info=f'Whether or not to add a background to the text.')
                 with gr.Group(visible=background_checkbox.value) as additional_options:
                     background_color, background_opacity = color_picker_with_opacity()
                     add_visibility(background_checkbox, additional_options)
+            if post_opt_render_fn:
+                with gr.Group():
+                    post_opt = post_opt_render_fn()
 
-    return ((font_font, font_size, font_color, font_opacity),
+    return (pre_opt, post_opt, (font_font, font_size, font_color, font_opacity),
             (drop_shadow_checkbox, drop_shadow_color, drop_shadow_opacity, drop_shadow_radius),
             (background_checkbox, background_color, background_opacity))
 
@@ -112,7 +121,8 @@ def add_blurred_shadow(image_pil, text, position, font, shadow_color=(0, 0, 0), 
 
 # Function to add text to an image with custom font, size, and wrapping
 def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 255), shadow_color=(255, 255, 255),
-             shadow_radius=None, max_width=None, show_background=False, show_shadow=False, background_color=(0, 0, 0, 255)):
+             shadow_radius=None, max_width=None, show_background=False, show_shadow=False,
+             background_color=(0, 0, 0, 255)):
     # Convert OpenCV image to PIL image
     image_pil = Image.fromarray(image)
     draw = ImageDraw.Draw(image_pil)
@@ -227,7 +237,7 @@ def process(image_files, json_file,
             nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
             dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
             mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-            rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
+            rating_text, rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
     if not json_file:
         print("No JSON file uploaded.")
         return
@@ -250,7 +260,8 @@ def process(image_files, json_file,
         json_data = json.load(file)
 
     if len(image_files) != len(json_data):
-        gr.Warning(f"Number of images ({len(image_files)}) does not match the number of items in the JSON ({len(json_data)}).")
+        gr.Warning(
+            f"Number of images ({len(image_files)}) does not match the number of items in the JSON ({len(json_data)}).")
 
     # We skip any entries that don't have an image field.
     json_dict = {item["image"]: item for item in json_data if "image" in item}
@@ -258,7 +269,8 @@ def process(image_files, json_file,
     for image_file in image_files:
         img_name = os.path.basename(image_file.name)
         if img_name not in json_dict:
-            gr.Warning(f"Image {img_name} not found in the JSON list. Make sure the JSON contains a reference to this image.")
+            gr.Warning(
+                f"Image {img_name} not found in the JSON list. Make sure the JSON contains a reference to this image.")
             continue
 
         img = process_image(image_file.name)
@@ -271,17 +283,19 @@ def process(image_files, json_file,
         # TODO Investigate why the alpha channel for the font text/fill is not working.
         # Add month and rating at the top center, one above the other
         print(f"mo. bg color {mbc}, opacity {mbo}, calculated alpha {get_rgba(mbc, mbo)}")
-        img, (_, month_height) = add_text(img, item["month"], top_center, mff, font_size=mfs, font_color=get_rgba(mfc, mfo),
+        img, (_, month_height) = add_text(img, item["month"], top_center, mff, font_size=mfs,
+                                          font_color=get_rgba(mfc, mfo),
                                           show_shadow=mse, shadow_radius=msr, shadow_color=get_rgba(msc, mso),
                                           show_background=mbe, background_color=get_rgba(mbc, mbo))
 
-        img, (_, _) = add_text(img, f'Comfortability: {item["rating"]}%', top_center + month_height + rating_offset,
+        img, (_, _) = add_text(img, f'{rating_text}: {item["rating"]}%', top_center + month_height + rating_offset,
                                rff, font_size=rfs, font_color=get_rgba(rfc, rfo),
                                show_shadow=rse, shadow_radius=rsr, shadow_color=get_rgba(rsc, rso),
                                show_background=rbe, background_color=get_rgba(rbc, rbo))
 
         # Add name and description at the bottom center, one above the other
-        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, font_size=nfs, font_color=nfc, max_width=15,
+        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, font_size=nfs, font_color=nfc,
+                                         max_width=15,
                                          show_shadow=nse, shadow_radius=nsr, shadow_color=get_rgba(nsc, nso),
                                          show_background=nbe, background_color=get_rgba(nbc, nbo))
         img, (_, _) = add_text(img, f'"{item["description"]}"', bottom_center + name_height + text_offset, dff,
@@ -296,7 +310,6 @@ def process(image_files, json_file,
 
 
 def save_to_disk(images, image_type, dir="images/output"):
-    # get current date as <month>_<day>_<year>
     date = datetime.now().strftime("%m%d%Y")
 
     dir = f"{dir}/{date}"
@@ -337,15 +350,17 @@ with gr.Blocks() as demo:
         with gr.Column():
             gr.Markdown("# Input")
             with gr.Row(equal_height=False):
-                input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
+                with gr.Column(scale=2):
+                    input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
                 with gr.Column():
-                    input_json = gr.File(file_types=[".json"], file_count="single", label="Upload JSON", interactive=True)
+                    input_json = gr.File(file_types=[".json"], file_count="single", label="Upload JSON",
+                                         interactive=True)
                     validate_json_button = gr.Button("Validate JSON", variant="secondary")
             with gr.Accordion("Important Notes", open=False):
                 gr.Markdown(
                     "When using the automatic JSON parser, make sure that the number of images and the number of "
                     "items in the JSON match.")
-                gr.Markdown("""The JSON **data** should be in the following format
+                gr.Markdown("""JSON **data** should be in the following format
                             ```json
                             {
                                 "month": <string>,
@@ -364,11 +379,20 @@ with gr.Blocks() as demo:
             with gr.Column(scale=3):
                 gr.Markdown("# Parameters")
                 with gr.Row(equal_height=False):
-                    (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters("Name", default_font_size=117)
-                    (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters("Description", default_font_size=42)
+                    _, _, (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters("Name",
+                                                                                                          default_font_size=117)
+                    _, _, (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters("Description",
+                                                                                                          default_font_size=42)
                 with gr.Row(equal_height=False):
-                    (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters("Month", default_font_size=145)
-                    (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = image_editor_parameters("Rating", default_font_size=55)
+                    _, _, (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters("Month",
+                                                                                                          default_font_size=145)
+                    def rating_text_input_fn():
+                        return gr.Dropdown(["Comfortability", "Survivability"],
+                                                         label="Rating Text", value="Comfortability", interactive=True,
+                                                         allow_custom_value=True)
+                    rating_text, _, (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = image_editor_parameters("Rating",
+                                                                                                          default_font_size=55,
+                                                                                                          pre_opt_render_fn=rating_text_input_fn)
 
             with gr.Column(scale=1):
                 gr.Markdown("# Output")
@@ -382,7 +406,7 @@ with gr.Blocks() as demo:
                                           nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
                                           dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
                                           mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-                                          rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
+                                          rating_text, rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
                                           ], outputs=[output_preview])
     validate_json_button.click(validate_json, inputs=[input_json], outputs=[])
     save_button.click(save_to_disk, inputs=[output_preview, image_type], outputs=[])
