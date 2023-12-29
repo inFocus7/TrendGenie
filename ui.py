@@ -7,10 +7,12 @@ import glob
 from PIL import ImageFont, ImageDraw, Image, ImageFilter
 import numpy as np
 import textwrap
-from collections import namedtuple
+from datetime import datetime
 
 # TODO: Add support to save a template for later use.
 #   This would allow for multiple saved templates for quick style switching.
+# TODO: Investigate why the generated images are a different color.
+#    ex. january fire is blue-ish instead of orange-ish.
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -280,8 +282,32 @@ def process(image_files, json_file,
     return images
 
 
-def save_to_disk():
-    pass
+def save_to_disk(images, image_type, dir="images/output"):
+    # get current date as <month>_<day>_<year>
+    date = datetime.now().strftime("%m%d%Y")
+
+    dir = f"{dir}/{date}"
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    for index, image in enumerate(images.root):
+        image = image.image
+        if image.path is None:
+            gr.Warning(f"Image at index {index} has no path... this shouldn't happen.")
+            continue
+
+        filename = image.orig_name
+        if filename is None:
+            timestamp = datetime.now().strftime("%H%M%S")
+            filename = f"output_{index}_{timestamp}"
+        filename += f".{image_type}"
+
+        filepath = os.path.join(dir, filename)
+
+        img = cv2.imread(image.path, cv2.IMREAD_UNCHANGED)
+        cv2.imwrite(filepath, img)
+
+    gr.Info(f"Saved generated images to {dir}.")
 
 
 def reset_parameters():
@@ -335,8 +361,9 @@ with gr.Blocks() as demo:
                 gr.Markdown("# Output")
                 output_preview = gr.Gallery(label="Previews")
                 # TODO: Only show if output is not empty (images have been generated).
-                # TODO: Implement batch save functionality.
-                save_button = gr.Button("Save to Disk", variant="primary")
+                with gr.Group():
+                    image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png", interactive=True)
+                    save_button = gr.Button("Save to Disk", variant="primary")
 
     process_button.click(process, inputs=[input_images, input_json,
                                           nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
@@ -345,7 +372,7 @@ with gr.Blocks() as demo:
                                           rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
                                           ], outputs=[output_preview])
     validate_json_button.click(validate_json, inputs=[input_json], outputs=[])
-    save_button.click(save_to_disk, inputs=[], outputs=[])
+    save_button.click(save_to_disk, inputs=[output_preview, image_type], outputs=[])
     reset_parameters_button.click(reset_parameters, inputs=[], outputs=[])
 
 if __name__ == "__main__":
