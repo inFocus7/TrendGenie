@@ -234,10 +234,10 @@ def process(image_files, json_file,
     with open(json_file) as file:
         json_data = json.load(file)
 
+    if len(image_files) != len(json_data):
+        gr.Warning(f"Number of images ({len(image_files)}) does not match the number of items in the JSON ({len(json_data)}).")
+
     # We skip any entries that don't have an image field.
-    # TODO: Allow for json validation. Ex. Add a button used to validate the list has all the required fields
-    #  ('image' for now, as it's necessary for referencing). It  should be a separate button/step so that processing
-    #  isn't blocked and no need to slow down by adding validation on every process.
     json_dict = {item["image"]: item for item in json_data if "image" in item}
 
     for image_file in image_files:
@@ -296,7 +296,6 @@ with gr.Blocks() as demo:
 
         # TODO: Add support for manual creation. Possibly another tab? One for manual (one-by-one), one for automatic (json parser).
         with gr.Column():
-            # TODO: When processing make sure that the number of items in the JSON matches the number of images uploaded.
             gr.Markdown("# Input")
             with gr.Row(equal_height=False):
                 input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
