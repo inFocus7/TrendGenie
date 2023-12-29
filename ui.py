@@ -244,12 +244,13 @@ def process(image_files, json_file,
         print("No images uploaded.")
         return
 
-    print(f"""Beginning processing with the following parameters...
-    {print_parameters("Name", nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo)}
-    {print_parameters("Description", dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo)}
-    {print_parameters("Month", mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo)}
-    {print_parameters("Rating", rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo)}
-    """)
+    if False: # TODO: Unskip in future
+        print(f"""Beginning processing with the following parameters...
+        {print_parameters("Name", nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo)}
+        {print_parameters("Description", dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo)}
+        {print_parameters("Month", mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo)}
+        {print_parameters("Rating", rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo)}
+        """)
 
     images = []
 
@@ -281,7 +282,6 @@ def process(image_files, json_file,
 
         # TODO Investigate why the alpha channel for the font text/fill is not working.
         # Add month and rating at the top center, one above the other
-        print(f"mo. bg color {mbc}, opacity {mbo}, calculated alpha {get_rgba(mbc, mbo)}")
         img, (_, month_height) = add_text(img, item["month"], top_center, mff, font_size=mfs,
                                           font_color=get_rgba(mfc, mfo),
                                           show_shadow=mse, shadow_radius=msr, shadow_color=get_rgba(msc, mso),
@@ -293,7 +293,7 @@ def process(image_files, json_file,
                                show_background=rbe, background_color=get_rgba(rbc, rbo))
 
         # Add name and description at the bottom center, one above the other
-        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, font_size=nfs, font_color=nfc,
+        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, font_size=nfs, font_color=get_rgba(nfc, nfo),
                                          max_width=15,
                                          show_shadow=nse, shadow_radius=nsr, shadow_color=get_rgba(nsc, nso),
                                          show_background=nbe, background_color=get_rgba(nbc, nbo))
