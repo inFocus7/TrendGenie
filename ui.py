@@ -37,6 +37,17 @@ def color_picker_with_opacity():
     return color, opacity
 
 
+def add_visibility(checkbox, group):
+    def update_visibility(checkbox_state):
+        return gr.Group(visible=checkbox_state)
+
+    checkbox.change(
+        update_visibility,
+        inputs=checkbox,
+        outputs=group
+    )
+
+
 def image_editor_parameters(name, default_font_size=55):
     with gr.Accordion(label=name):
         with gr.Column():
@@ -44,18 +55,20 @@ def image_editor_parameters(name, default_font_size=55):
             with gr.Group():
                 font_color, font_opacity = color_picker_with_opacity()
                 font_size = gr.Number(default_font_size, label="Font Size", info=f'The size of the font.')
-            # TODO: if drop shadow checkbox is checked, show the following options.
             with gr.Group():
                 drop_shadow_checkbox = gr.Checkbox(False, label="Enable",
                                                    info=f'Whether or not to add a drop shadow to the text.')
-                drop_shadow_color, drop_shadow_opacity = color_picker_with_opacity()
-                drop_shadow_radius = gr.Number(0, label="Shadow Radius", info=f'The radius of the drop shadow.')
+                with gr.Group(visible=drop_shadow_checkbox.value) as additional_options:
+                    drop_shadow_color, drop_shadow_opacity = color_picker_with_opacity()
+                    drop_shadow_radius = gr.Number(0, label="Shadow Radius", info=f'The radius of the drop shadow.')
+                    add_visibility(drop_shadow_checkbox, additional_options)
 
-            # TODO: if background checkbox is checked, show the following options.
             with gr.Group():
                 background_checkbox = gr.Checkbox(False, label="Enable",
                                                   info=f'Whether or not to add a background to the text.')
-                background_color, background_opacity = color_picker_with_opacity()
+                with gr.Group(visible=background_checkbox.value) as additional_options:
+                    background_color, background_opacity = color_picker_with_opacity()
+                    add_visibility(background_checkbox, additional_options)
 
     return ((font_font, font_size, font_color, font_opacity),
             (drop_shadow_checkbox, drop_shadow_color, drop_shadow_opacity, drop_shadow_radius),
