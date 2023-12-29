@@ -11,8 +11,6 @@ from datetime import datetime
 
 # TODO: Add support to save a template for later use.
 #   This would allow for multiple saved templates for quick style switching.
-# TODO: Look into why saving directly from gallery doesn't process the color correctly.
-#  Could be due to color mode differences between PIL and OpenCV...
 
 font_files = []
 # TODO: Add support for Windows and Linux.
