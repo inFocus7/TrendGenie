@@ -1,3 +1,4 @@
+import base64
 import json
 
 import cv2
@@ -8,9 +9,12 @@ from PIL import ImageFont, ImageDraw, Image, ImageFilter
 import numpy as np
 import textwrap
 from datetime import datetime
+from openai import OpenAI
+import uuid
 
 # TODO: Add support to save a template for later use.
 #   This would allow for multiple saved templates for quick style switching.
+# TODO: Update batch processing to use parse fields (ex. association instead of months)
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -167,7 +171,7 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
 
 def process_image(filepath):
     img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA) # Convert to RGBA for PIL usage
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)  # Convert to RGBA for PIL usage
     return cv2.resize(img, (1080, 1920), interpolation=cv2.INTER_AREA)
 
 
@@ -350,68 +354,290 @@ with gr.Blocks() as demo:
 
     with gr.Tab("Listicle Template"):
         gr.Markdown("Create images in the style of those 'Your birth month is your ___' TikToks.")
+        with gr.Tab("Generate"):
+            gr.Markdown("Generate the listicle, JSON file, and images to use here using Chat-GPT.")
 
-        # TODO: Add support for manual creation. Possibly another tab? One for manual (one-by-one), one for automatic
-        #  (json parser).
-        with gr.Column():
-            gr.Markdown("# Input")
-            with gr.Row(equal_height=False):
-                with gr.Column(scale=2):
-                    input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
-                with gr.Column():
-                    input_json = gr.File(file_types=[".json"], file_count="single", label="Upload JSON",
-                                         interactive=True)
-                    validate_json_button = gr.Button("Validate JSON", variant="secondary")
-            with gr.Accordion("Important Notes", open=False):
-                gr.Markdown(
-                    "When using the automatic JSON parser, make sure that the number of images and the number of "
-                    "items in the JSON match.")
-                gr.Markdown("""JSON **data** should be in the following format
-                            ```json
-                            {
-                                "month": <string>,
-                                "name": <string>,
-                                "description": <string>,
-                                "rating": <int>,
-                                "image": <string>, // <- The name of the image file this refers to.
-                            }
-                            ```
-                            """)
             with gr.Row():
-                reset_parameters_button = gr.Button("Reset Parameters to Default", variant="secondary")
-                process_button = gr.Button("Process", variant="primary")
+                api_key = gr.Textbox(label="OpenAI API Key",
+                                     placeholder="Leave empty to use the OPENAI_API_KEY environment variable.",
+                                     lines=1, interactive=True)
+                # TODO: Update with gpt-4?
+                api_text_model = gr.Dropdown(["gpt-3.5-turbo", "gpt-4"], label="API Model", value="gpt-3.5-turbo",
+                                             interactive=True)
+                # TODO: Update with dall-e-3?
+                api_image_model = gr.Dropdown(["dall-e-2", "dall-e-3"], label="API Image Model", value="dall-e-2",
+                                              interactive=True)
 
-        with gr.Row():
-            with gr.Column(scale=3):
-                gr.Markdown("# Parameters")
-                with gr.Row(equal_height=False):
-                    _, _, (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters("Name",
-                                                                                                                default_font_size=117)
-                    _, _, (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters(
-                        "Description",
-                        default_font_size=42)
-                with gr.Row(equal_height=False):
-                    _, _, (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters("Month",
-                                                                                                                default_font_size=145)
-
-
-                    def rating_text_input_fn():
-                        return gr.Dropdown(["Comfortability", "Survivability"],
-                                           label="Rating Text", value="Comfortability", interactive=True,
-                                           allow_custom_value=True)
-
-
-                    rating_text, _, (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (
-                    rbe, rbc, rbo) = image_editor_parameters("Rating",
-                                                             default_font_size=55,
-                                                             pre_opt_render_fn=rating_text_input_fn)
-
-            with gr.Column(scale=1):
-                gr.Markdown("# Output")
-                output_preview = gr.Gallery(label="Previews")
+            with gr.Row(equal_height=False):
                 with gr.Group():
-                    image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png", interactive=True)
-                    save_button = gr.Button("Save to Disk", variant="primary")
+                    with gr.Group():
+                        with gr.Row():
+                            topic = gr.Dropdown(["scary rooms", "fantasy environments"], label="Topic",
+                                                value="scary rooms", interactive=True, info="The topic of the listicle (keep it short).")
+                            association = gr.Dropdown(["birth month", "astrological sign"], label="Association", value="birth month", info="What to associate each item with.")
+                            rating_type = gr.Dropdown(["survivability", "comfortability"], label="Rating",
+                                                      value="comfortability", interactive=True, allow_custom_value=True)
+                            num_items = gr.Number(12, label="Number of list items", minimum=1, maximum=25, step=1,
+                                                  interactive=True)
+                        details = gr.TextArea(label="Additional Details",
+                                              placeholder="Additional details about the listicle.",
+                                              lines=3)
+                        generate_artifacts = gr.Checkbox(False, label="Generate Artifacts", interactive=True, info="Generate JSON and images for the listicle.")
+
+                    generate_listicle_button = gr.Button("Generate Listicle", variant="primary")
+
+
+                    def generate_listicle(api_key, api_text_model, api_image_model, number_of_items, topic, association,
+                                          rating_type, details="", generate_artifacts=False):
+                        if api_key is None or api_key == "":
+                            api_key = os.environ.get("OPENAI_API_KEY")
+                        if api_key is None or api_key == "":
+                            gr.Warning("No OPENAI_API_KEY environment variable set.")
+                            return None, None, None
+                        listicle_json = None
+                        listicle_images = []
+                        openai = OpenAI(api_key=api_key)
+
+                        # TODO: Make prompts more efficient (token) to save on costs.
+                        additional_details = ""
+                        if association is not None and association != "":
+                            additional_details += f"Associate each item with a(n) {association}."
+                        additional_details += details
+
+                        messages = [
+                            {"role": "user", "content": f"Generate a list of {number_of_items} {topic}. ONLY generate {number_of_items} items. "
+                                                        f"For each item, add a unique name and description, and provide"
+                                                        f" a rating from 0-100 for each based off {rating_type}. "
+                                                        f"{additional_details}"},
+                        ]
+
+                        listicle_response_message = [
+                            {"role": "system",
+                             "content": f"You are a TikTok creator that is creating a listicle of {topic}."},
+                        ]
+                        listicle_response_message.extend(messages)
+                        listicle_response = openai.chat.completions.create(
+                            model=api_text_model,
+                            messages=listicle_response_message,
+                        )
+
+                        resp = listicle_response.choices[0]
+                        if resp.finish_reason != "stop":
+                            if resp.finish_reason == "length":
+                                gr.Warning(
+                                    f"finish_reason: {resp.finish_reason}. The maximum number of tokens specified in the request was reached.")
+                                return None, None, None
+                            elif resp.finish_reason == "content_filter":
+                                gr.Warning(
+                                    f"finish_reason: {resp.finish_reason}. The content was omitted due to a flag from OpenAI's content filters.")
+                                return None, None, None
+
+                        listicle_content = resp.message.content
+                        if listicle_content is None or listicle_content == "":
+                            gr.Warning("No listicle content was generated.")
+                            return None, None, None
+
+                        messages.append({"role": "assistant", "content": listicle_content})
+
+                        if generate_artifacts:
+                            # TODO: Remove if/once not needed. Use the 1106 previews to use json response formatting.
+                            # https://github.com/openai/openai-python/issues/887#issuecomment-1829085545
+                            json_model = "gpt-4-1106-preview" if api_text_model == "gpt-4" else "gpt-3.5-turbo-1106"
+
+                            listicle_json_messages = [
+                                {"role": "system",
+                                 "content": "You are a master at formatting pre-generated listicles into JSON."},
+                            ]
+
+                            listicle_json_messages.extend(messages)
+                            json_format = "{name: <string>, description: <string>, rating: <int>"  # TODO: image names, when saved, should be kebab-cased 'name' field (i'll need to update the image processing code as well)
+                            if association is not None and association != "":  # Add association field if provided
+                                json_format += ", association: <string>"
+                            json_format += "}"
+                            message = f"Format the listicle into JSON. For the items, store as a list named 'items' with the content format: {json_format}."
+                            if rating_type is not None and rating_type != "":
+                                message += (f"Include a top-level field `rating_type: <string>` with what the rating "
+                                            f"represents.")
+                            listicle_json_messages.extend([{
+                                "role": "user",
+                                "content": message,
+                            }])
+                            listicle_json_response = openai.chat.completions.create(
+                                model=json_model,
+                                response_format={"type": "json_object"},
+                                messages=listicle_json_messages,
+                            )
+                            resp = listicle_json_response.choices[0]
+                            if resp.finish_reason != "stop":
+                                if resp.finish_reason == "length":
+                                    gr.Warning(
+                                        f"finish_reason: {resp.finish_reason}. The maximum number of tokens specified in the request was reached.")
+                                    return listicle_content, None, None
+                                elif resp.finish_reason == "content_filter":
+                                    gr.Warning(
+                                        f"finish_reason: {resp.finish_reason}. The content was omitted due to a flag from OpenAI's content filters.")
+                                    return listicle_content, None, None
+
+                            if resp.message.content is None or resp.message.content == "":
+                                gr.Warning("No listicle JSON was generated.")
+                                return listicle_content, None, None
+
+                            listicle_json = resp.message.content
+
+                            # TODO - image generation
+                            # Parse the listicle_json string as JSON and generate images for each 'item's 'description' field.
+                            listicle_json_data = json.loads(listicle_json)
+
+                            for item in listicle_json_data["items"]:
+                                description = item["description"]
+                                name = item["name"]
+
+                                listicle_image_response = openai.images.generate(
+                                    prompt=f"Generate an image depicting {name}. Described as: {description}. NO TEXT.",
+                                    model=api_image_model,
+                                    size="1024x1792" if api_image_model == "dall-e-3" else "1024x1024",
+                                    n=1,
+                                    quality="hd" if api_image_model == "dall-e-3" else "standard",
+                                    response_format="b64_json",
+                                )
+                                b64_json_image = listicle_image_response.data[0].b64_json
+                                if b64_json_image is None or b64_json_image == "":
+                                    gr.Warning(f"No image generated for {name}.")
+                                    continue
+                                img_bytes = base64.b64decode(b64_json_image)
+                                img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_UNCHANGED)
+                                listicle_images += [img]
+
+                        return listicle_content, listicle_json, listicle_images
+
+                    def save_artifacts(listicle_images, image_type, json_data):
+                        if not listicle_images or len(listicle_images.root) == 0:
+                            gr.Warning("No images to save.")
+                            return
+                        if not json_data or len(json_data) == 0:
+                            gr.Warning("No JSON data to save.")
+                            return
+
+                        artifact_id = uuid.uuid4()
+
+                        date = datetime.now().strftime("%m%d%Y")
+                        # Saving as an 'input' with a unique id so users can easily find the images they generated for
+                        # processing.
+                        dir = f"images/input/{date}/{artifact_id}"
+                        if not os.path.exists(dir):
+                            os.makedirs(dir)
+
+                        for index, image in enumerate(listicle_images.root):
+                            image = image.image
+                            if image.path is None:
+                                gr.Warning(f"Image at index {index} has no path... this shouldn't happen.")
+                                continue
+
+                            # Get the name of the image from the JSON data
+                            filename = f"{index}.{image_type}"
+                            filepath = os.path.join(dir, filename)
+
+                            img = cv2.imread(image.path, cv2.IMREAD_UNCHANGED)
+                            cv2.imwrite(filepath, img)
+
+                        # Save the JSON data
+                        json_filepath = os.path.join(dir, "data.json")
+                        with open(json_filepath, "w") as file:
+                            json_data = json.loads(json_data)
+                            json.dump(json_data, file, indent=4)
+
+                        gr.Info(f"Saved generated artifacts to {dir}.")
+
+                with gr.Column():
+                    listicle_output = gr.TextArea(label="Listicle", show_label=False,
+                                                  placeholder="Your generated Listicle will appear here.", lines=15,
+                                                  max_lines=15,
+                                                  interactive=False)
+                    listicle_json_output = gr.Code("{}", language="json", label="JSON", lines=10, interactive=False)
+                    listicle_image_output = gr.Gallery(label="Generated Images")
+                    with gr.Column():
+                        with gr.Group():
+                            image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png", interactive=True)
+                            download_artifacts_button = gr.Button("Download Artifacts", variant="primary")
+                        with gr.Row():
+                            send_artifacts_to_single = gr.Button("Send Artifacts to Single Processing", variant="secondary")
+                            send_artifacts_to_batch = gr.Button("Send Artifacts to Batch Processing", variant="secondary")
+
+                generate_listicle_button.click(generate_listicle,
+                                               inputs=[api_key, api_text_model, api_image_model, num_items, topic,
+                                                       association, rating_type, details, generate_artifacts],
+                                               outputs=[listicle_output, listicle_json_output, listicle_image_output])
+                download_artifacts_button.click(
+                    save_artifacts,
+                    inputs=[listicle_image_output, image_type, listicle_json_output],
+                    outputs=[]
+                )
+        with gr.Tab("Manual"):
+            gr.Markdown("Create images one-by-one.")
+            gr.Markdown("TODO")
+        with gr.Tab("Batch"):
+            with gr.Column():
+                gr.Markdown("# Input")
+                with gr.Row(equal_height=False):
+                    with gr.Column(scale=2):
+                        input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
+                    with gr.Column():
+                        input_json = gr.File(file_types=[".json"], file_count="single", label="Upload JSON",
+                                             interactive=True)
+                        validate_json_button = gr.Button("Validate JSON", variant="secondary")
+                with gr.Accordion("Important Notes", open=False):
+                    gr.Markdown(
+                        "When using the automatic JSON parser, make sure that the number of images and the number of "
+                        "items in the JSON match.")
+                    gr.Markdown("""JSON **data** should be in the following format
+                                ```json
+                                {
+                                    "month": <string>,
+                                    "name": <string>,
+                                    "description": <string>,
+                                    "rating": <int>,
+                                    "image": <string>, // <- The name of the image file this refers to.
+                                }
+                                ```
+                                """)
+                with gr.Row():
+                    reset_parameters_button = gr.Button("Reset Parameters to Default", variant="secondary")
+                    process_button = gr.Button("Process", variant="primary")
+
+            with gr.Row():
+                with gr.Column(scale=3):
+                    gr.Markdown("# Parameters")
+                    with gr.Row(equal_height=False):
+                        _, _, (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters(
+                            "Name",
+                            default_font_size=117)
+                        _, _, (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters(
+                            "Description",
+                            default_font_size=42)
+                    with gr.Row(equal_height=False):
+                        _, _, (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters(
+                            "Month",
+                            default_font_size=145)
+
+
+                        def rating_text_input_fn():
+                            return gr.Dropdown(["Comfortability", "Survivability"],
+                                               label="Rating Text", value="Comfortability", interactive=True,
+                                               allow_custom_value=True)
+
+
+                        rating_text, _, (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (
+                            rbe, rbc, rbo) = image_editor_parameters("Rating",
+                                                                     default_font_size=55,
+                                                                     pre_opt_render_fn=rating_text_input_fn)
+
+                with gr.Column(scale=1):
+                    gr.Markdown("# Output")
+                    output_preview = gr.Gallery(label="Previews")
+                    with gr.Group():
+                        image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png",
+                                                 interactive=True)
+                        save_button = gr.Button("Save to Disk", variant="primary")
 
     process_button.click(process, inputs=[input_images, input_json,
                                           nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
