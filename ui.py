@@ -35,11 +35,13 @@ def color_picker_with_opacity():
     return color, opacity
 
 
-def image_editor_parameters(name):
+def image_editor_parameters(name, default_font_size=55):
     with gr.Accordion(label=name):
         with gr.Column():
             font_font = gr.Dropdown(font_names, value=font_names[0], label="Font", info=f'The font used for the text.')
-            font_color, font_opacity = color_picker_with_opacity()
+            with gr.Group():
+                font_color, font_opacity = color_picker_with_opacity()
+                font_size = gr.Number(default_font_size, label="Font Size", info=f'The size of the font.')
             # TODO: if drop shadow checkbox is checked, show the following options.
             with gr.Group():
                 drop_shadow_checkbox = gr.Checkbox(False, label="Enable",
@@ -53,7 +55,7 @@ def image_editor_parameters(name):
                                                   info=f'Whether or not to add a background to the text.')
                 background_color, background_opacity = color_picker_with_opacity()
 
-    return ((font_font, font_color, font_opacity),
+    return ((font_font, font_size, font_color, font_opacity),
             (drop_shadow_checkbox, drop_shadow_color, drop_shadow_opacity, drop_shadow_radius),
             (background_checkbox, background_color, background_opacity))
 
@@ -143,10 +145,11 @@ def process_image(filepath):
     return cv2.resize(img, (1080, 1920), interpolation=cv2.INTER_AREA)
 
 
-def print_parameters(name, ff, fc, fo, se, sc, so, sr, be, bc, bo):
+def print_parameters(name, ff, fs, fc, fo, se, sc, so, sr, be, bc, bo):
     return f"""- {name}
     - Font
-        - FontType: {ff}
+        - Type: {ff}
+        - Size: {fs}
         - Color: {fc}
         - Opacity: {fo}
     - Drop Shadow
@@ -176,10 +179,10 @@ def get_rgba(color, opacity):
 # this is maybe the ugliest code I've written, but gradio inputs didn't allow me to pass in a class, namedtuple, or
 # tuple to clean this up. Need to find a better/cleaner way to do this.
 def process(image_files, json_file,
-            nff, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
-            dff, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
-            mff, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-            rff, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
+            nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
+            dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
+            mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
+            rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
     if not json_file:
         print("No JSON file uploaded.")
         return
@@ -188,10 +191,10 @@ def process(image_files, json_file,
         return
 
     print(f"""Beginning processing with the following parameters...
-    {print_parameters("Name", nff, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo)}
-    {print_parameters("Description", dff, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo)}
-    {print_parameters("Month", mff, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo)}
-    {print_parameters("Rating", rff, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo)}
+    {print_parameters("Name", nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo)}
+    {print_parameters("Description", dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo)}
+    {print_parameters("Month", mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo)}
+    {print_parameters("Rating", rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo)}
     """)
 
     images = []
@@ -221,21 +224,21 @@ def process(image_files, json_file,
         # TODO Investigate why the alpha channel for the font text/fill is not working.
         # Add month and rating at the top center, one above the other
         print(f"mo. bg color {mbc}, opacity {mbo}, calculated alpha {get_rgba(mbc, mbo)}")
-        img, (_, month_height) = add_text(img, item["month"], top_center, mff, 145, font_color=get_rgba(mfc, mfo),
+        img, (_, month_height) = add_text(img, item["month"], top_center, mff, font_size=mfs, font_color=get_rgba(mfc, mfo),
                                           show_shadow=mse, shadow_radius=msr, shadow_color=get_rgba(msc, mso),
                                           show_background=mbe, background_color=get_rgba(mbc, mbo))
 
         img, (_, _) = add_text(img, f'Comfortability: {item["rating"]}%', top_center + month_height + rating_offset,
-                               rff, 55, font_color=get_rgba(rfc, rfo),
+                               rff, font_size=rfs, font_color=get_rgba(rfc, rfo),
                                show_shadow=rse, shadow_radius=rsr, shadow_color=get_rgba(rsc, rso),
                                show_background=rbe, background_color=get_rgba(rbc, rbo))
 
         # Add name and description at the bottom center, one above the other
-        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, 117, font_color=nfc, max_width=15,
+        img, (_, name_height) = add_text(img, item["name"], bottom_center, nff, font_size=nfs, font_color=nfc, max_width=15,
                                          show_shadow=nse, shadow_radius=nsr, shadow_color=get_rgba(nsc, nso),
                                          show_background=nbe, background_color=get_rgba(nbc, nbo))
         img, (_, _) = add_text(img, f'"{item["description"]}"', bottom_center + name_height + text_offset, dff,
-                               42, font_color=get_rgba(dfc, dfo),
+                               font_size=dfs, font_color=get_rgba(dfc, dfo),
                                show_shadow=dse, shadow_radius=dsr, shadow_color=get_rgba(dsc, dso),
                                show_background=dbe, background_color=get_rgba(dbc, dbo),
                                max_width=43)  # Adjust for wrapped text
@@ -262,7 +265,6 @@ with gr.Blocks() as demo:
         # TODO: Add support for manual creation. Possibly another tab? One for manual (one-by-one), one for automatic (json parser).
         with gr.Column():
             # TODO: When processing make sure that the number of items in the JSON matches the number of images uploaded.
-            # TODO: When processing make sure the name references in the JSON match the names of the images uploaded.
             gr.Markdown("# Input")
             with gr.Row(equal_height=False):
                 input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
@@ -290,24 +292,24 @@ with gr.Blocks() as demo:
             with gr.Column(scale=3):
                 gr.Markdown("# Parameters")
                 with gr.Row(equal_height=False):
-                    (nff, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters("Name")
-                    (dff, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters("Description")
+                    (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters("Name", default_font_size=117)
+                    (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters("Description", default_font_size=42)
                 with gr.Row(equal_height=False):
-                    (mff, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters("Month")
-                    (rff, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = image_editor_parameters("Rating")
+                    (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters("Month", default_font_size=145)
+                    (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = image_editor_parameters("Rating", default_font_size=55)
 
             with gr.Column(scale=1):
                 gr.Markdown("# Output")
                 output_preview = gr.Gallery(label="Previews")
                 # TODO: Only show if output is not empty (images have been generated).
-                # TODO: Implement download functionality.
+                # TODO: Implement batch save functionality.
                 save_button = gr.Button("Save to Disk", variant="primary")
 
     process_button.click(process, inputs=[input_images, input_json,
-                                          nff, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
-                                          dff, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
-                                          mff, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-                                          rff, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
+                                          nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
+                                          dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
+                                          mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
+                                          rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
                                           ], outputs=[output_preview])
     save_button.click(save_to_disk, inputs=[], outputs=[])
     reset_parameters_button.click(reset_parameters, inputs=[], outputs=[])
