@@ -13,13 +13,11 @@ import api.chatgpt as chatgpt_api
 # TODO: Since it's chatGPT it could sometimes deny a request due to content filters.
 #   Workaround: Add support for local stable diffusion models/generations?
 # TODO: Add some form of 'streaming' so the generated data gets displayed as it's generated.
-# TODO: when storing in unique ids, verify that the id is unique and the folder does not exist. If exists, regenerates.
 # TODO: In the batch creator, add a section in parameters to create a cover image. It should take in a title, subtitle,
 #   and image. The image should be able to be uploaded or generated.
 #   Actually how would generation work? I'm assuming users would want it generated as well.
 #     Maybe when generating the pictures, it generates a cover image as well and the JSON will have a top-level 'cover'
 #     field with {image, title, subtitle}.
-# TODO: Clean this and create separate modules/packages.
 # TODO: Add reset parameters button.
 
 font_files = []
