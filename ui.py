@@ -1,4 +1,3 @@
-import base64
 import json
 
 import cv2
@@ -16,7 +15,9 @@ import uuid
 #   This would allow for multiple saved templates for quick style switching.
 # TODO: Investigate why the image during generation shown in preview is different hue than the final image.
 #   Likely due to RGB vs BGR, somewhere...
-# TODO: Add support to update json with uploaded file.
+# TODO: Since it's chatGPT it's possible the 'items' field does not get created and results in an error.
+# TODO: Since it's chatGPT it could sometimes deny a request due to content filters.
+#   Workaround: Add support for local stable diffusion models/generations?
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -598,8 +599,22 @@ with gr.Blocks() as demo:
                         input_batch_json = gr.Code("{}", language="json", label="Configuration (JSON)", lines=10)
                         with gr.Group():
                             with gr.Row():
-                                upload_json_button = gr.Button("Upload JSON", variant="secondary") # TODO implement ability to update json code based on file
-                                validate_json_button = gr.Button("Validate JSON", variant="secondary")
+                                upload_json = gr.File(label="Upload JSON", file_types=[".json"])
+                                set_json_button = gr.Button("Set JSON", variant="secondary")
+
+                        def set_json(json_file):
+                            if not json_file:
+                                gr.Warning("No JSON file uploaded. Reverse to default.")
+                                return input_batch_json.value
+                            with open(json_file.name, "r") as file:
+                                json_data = json.load(file)
+                                json_data = json.dumps(json_data, indent=4)
+
+                            return json_data
+
+                        set_json_button.click(set_json, inputs=[upload_json], outputs=[input_batch_json])
+                        with gr.Row():
+                            validate_json_button = gr.Button("Validate JSON", variant="secondary")
                 with gr.Accordion("Important Notes", open=False):
                     gr.Markdown(
                         "When using the automatic JSON parser, make sure that the number of images and the number of "
