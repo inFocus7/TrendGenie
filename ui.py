@@ -19,6 +19,7 @@ import uuid
 # TODO: Since it's chatGPT it could sometimes deny a request due to content filters.
 #   Workaround: Add support for local stable diffusion models/generations?
 # TODO: Add some form of 'streaming' so the generated data gets displayed as it's generated.
+# TODO: when storing in unique ids, verify that the id is unique and the folder does not exist. If exists, regenerates.
 
 font_files = []
 # TODO: Add support for Windows and Linux.
