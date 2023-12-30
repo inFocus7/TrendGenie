@@ -25,6 +25,7 @@ import uuid
 #   Actually how would generation work? I'm assuming users would want it generated as well.
 #     Maybe when generating the pictures, it generates a cover image as well and the JSON will have a top-level 'cover'
 #     field with {image, title, subtitle}.
+# TODO: Clean this and create separate modules/packages.
 
 font_files = []
 # TODO: Add support for Windows and Linux.
