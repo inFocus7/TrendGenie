@@ -18,6 +18,7 @@ import uuid
 # TODO: Since it's chatGPT it's possible the 'items' field does not get created and results in an error.
 # TODO: Since it's chatGPT it could sometimes deny a request due to content filters.
 #   Workaround: Add support for local stable diffusion models/generations?
+# TODO: Add some form of 'streaming' so the generated data gets displayed as it's generated.
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -311,6 +312,9 @@ def url_path_to_image_name(url):
     image_name = image_name.replace("%", "")
     image_name = image_name.replace("&", "")
     image_name = image_name.replace("=", "")
+    # Only get UP TO the first 200 characters of the image name. At least on my computer the file names get cut off at
+    # 200 causing referencing them from json (which has the complete 200+ character name) to fail, as there's no match.
+    image_name = image_name[:200]
     return image_name
 
 def save_to_disk(images, image_type, dir="images/output"):
