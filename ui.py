@@ -14,7 +14,9 @@ import uuid
 
 # TODO: Add support to save a template for later use.
 #   This would allow for multiple saved templates for quick style switching.
-# TODO: Update batch processing to use parse fields (ex. association instead of months)
+# TODO: Investigate why the image during generation shown in preview is different hue than the final image.
+#   Likely due to RGB vs BGR, somewhere...
+# TODO: Add support to update json with uploaded file.
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -51,15 +53,10 @@ def add_visibility(checkbox, group):
     )
 
 
-def image_editor_parameters(name, default_font_size=55, pre_opt_render_fn=None, post_opt_render_fn=None):
-    pre_opt = None
-    post_opt = None
+def image_editor_parameters(name, default_font_size=55):
     with gr.Accordion(label=name):
         with gr.Column():
             font_font = gr.Dropdown(font_names, value=font_names[0], label="Font", info=f'The font used for the text.')
-            if pre_opt_render_fn:
-                with gr.Group():
-                    pre_opt = pre_opt_render_fn()
             with gr.Group():
                 font_color, font_opacity = color_picker_with_opacity()
                 font_size = gr.Number(default_font_size, label="Font Size", info=f'The size of the font.')
@@ -76,11 +73,8 @@ def image_editor_parameters(name, default_font_size=55, pre_opt_render_fn=None, 
                 with gr.Group(visible=background_checkbox.value) as additional_options:
                     background_color, background_opacity = color_picker_with_opacity()
                     add_visibility(background_checkbox, additional_options)
-            if post_opt_render_fn:
-                with gr.Group():
-                    post_opt = post_opt_render_fn()
 
-    return (pre_opt, post_opt, (font_font, font_size, font_color, font_opacity),
+    return ((font_font, font_size, font_color, font_opacity),
             (drop_shadow_checkbox, drop_shadow_color, drop_shadow_opacity, drop_shadow_radius),
             (background_checkbox, background_color, background_opacity))
 
@@ -153,7 +147,7 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
         text_x = (img_width - line_width) / 2  # Adjusted to use numpy width
         line_y = position + y_offset
         y_offset += (line_height + 6)
-        # TODO: This is bad for multiline text, since the background is drawn for each line and overlaps previous lines.
+
         if show_background:
             (text_x, line_y), _ = add_background(image_pil, draw, (text_x, line_y), line, font,
                                                  fill_color=background_color, border_radius=10)
@@ -211,22 +205,17 @@ def validate_json(json_file):
         gr.Warning("No JSON file uploaded.")
         return
 
-    with open(json_file) as file:
-        json_data = json.load(file)
+    json_data = json.loads(json_file)
 
-    # Make sure that the JSON is a list
-    if not isinstance(json_data, list):
-        gr.Warning("JSON is not a list.")
+    if json_data["items"] is None or len(json_data["items"]) == 0:
+        gr.Warning("JSON is missing the 'items' field.")
         return
 
-    if len(json_data) == 0:
-        gr.Warning("JSON is empty.")
-        return
 
     # Make sure that the JSON has the required fields
     required_fields = ["image"]
     warnings = 0
-    for index, item in enumerate(json_data):
+    for index, item in enumerate(json_data["items"]):
         for field in required_fields:
             if field not in item:
                 gr.Warning(f"JSON is missing an important field '{field}' at item index {index}.")
@@ -238,23 +227,23 @@ def validate_json(json_file):
 
 # this is maybe the ugliest code I've written, but gradio inputs didn't allow me to pass in a class, namedtuple, or
 # tuple to clean this up. Need to find a better/cleaner way to do this.
-def process(image_files, json_file,
+def process(image_files, json_data,
             nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
             dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
             mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-            rating_text, rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
-    if not json_file:
+            rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
+    if not json_data:
         print("No JSON file uploaded.")
         return
     if not image_files:
         print("No images uploaded.")
         return
 
-    if False:  # TODO: Unskip in future
+    if False:  # TODO: Un-skip in future
         print(f"""Beginning processing with the following parameters...
         {print_parameters("Name", nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo)}
         {print_parameters("Description", dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo)}
-        {print_parameters("Month", mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo)}
+        {print_parameters("Association", mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo)}
         {print_parameters("Rating", rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo)}
         """)
 
@@ -262,15 +251,15 @@ def process(image_files, json_file,
 
     rating_offset = 34
     text_offset = 49
-    with open(json_file) as file:
-        json_data = json.load(file)
+    json_data = json.loads(json_data)
 
-    if len(image_files) != len(json_data):
+    if len(image_files) != len(json_data["items"]):
         gr.Warning(
             f"Number of images ({len(image_files)}) does not match the number of items in the JSON ({len(json_data)}).")
-
+    # TODO Get survivability text from the JSON root
     # We skip any entries that don't have an image field.
-    json_dict = {item["image"]: item for item in json_data if "image" in item}
+    json_data_items = json_data["items"]
+    json_dict = {item["image"]: item for item in json_data_items if "image" in item}
 
     for image_file in image_files:
         img_name = os.path.basename(image_file.name)
@@ -286,13 +275,13 @@ def process(image_files, json_file,
         top_center = int(img.shape[0] * 0.13)
         bottom_center = int(img.shape[0] * 0.70)
 
-        # Add month and rating at the top center, one above the other
-        img, (_, month_height) = add_text(img, item["month"], top_center, mff, font_size=mfs,
+        # Add association and rating at the top center, one above the other
+        img, (_, association_height) = add_text(img, item["association"], top_center, mff, font_size=mfs,
                                           font_color=get_rgba(mfc, mfo),
                                           show_shadow=mse, shadow_radius=msr, shadow_color=get_rgba(msc, mso),
                                           show_background=mbe, background_color=get_rgba(mbc, mbo))
 
-        img, (_, _) = add_text(img, f'{rating_text}: {item["rating"]}%', top_center + month_height + rating_offset,
+        img, (_, _) = add_text(img, f'{json_data["rating_type"]}: {item["rating"]}%', top_center + association_height + rating_offset,
                                rff, font_size=rfs, font_color=get_rgba(rfc, rfo),
                                show_shadow=rse, shadow_radius=rsr, shadow_color=get_rgba(rsc, rso),
                                show_background=rbe, background_color=get_rgba(rbc, rbo))
@@ -313,6 +302,15 @@ def process(image_files, json_file,
 
     return images
 
+
+def url_path_to_image_name(url):
+    # Get the part after the final `/` in the URL
+    image_name = url.rsplit('/', 1)[-1]
+    # Remove any '%', "&", "=" from the image name
+    image_name = image_name.replace("%", "")
+    image_name = image_name.replace("&", "")
+    image_name = image_name.replace("=", "")
+    return image_name
 
 def save_to_disk(images, image_type, dir="images/output"):
     if not images:
@@ -356,18 +354,14 @@ with gr.Blocks() as demo:
         gr.Markdown("Create images in the style of those 'Your birth month is your ___' TikToks.")
         with gr.Tab("Generate"):
             gr.Markdown("Generate the listicle, JSON file, and images to use here using Chat-GPT.")
-
             with gr.Row():
                 api_key = gr.Textbox(label="OpenAI API Key",
                                      placeholder="Leave empty to use the OPENAI_API_KEY environment variable.",
                                      lines=1, interactive=True)
-                # TODO: Update with gpt-4?
                 api_text_model = gr.Dropdown(["gpt-3.5-turbo", "gpt-4"], label="API Model", value="gpt-3.5-turbo",
                                              interactive=True)
-                # TODO: Update with dall-e-3?
                 api_image_model = gr.Dropdown(["dall-e-2", "dall-e-3"], label="API Image Model", value="dall-e-2",
                                               interactive=True)
-
             with gr.Row(equal_height=False):
                 with gr.Group():
                     with gr.Group():
@@ -407,8 +401,9 @@ with gr.Blocks() as demo:
                         messages = [
                             {"role": "user", "content": f"Generate a list of {number_of_items} {topic}. ONLY generate {number_of_items} items. "
                                                         f"For each item, add a unique name and description, and provide"
-                                                        f" a rating from 0-100 for each based off {rating_type}. "
-                                                        f"{additional_details}"},
+                                                        f" a rating from 0-100 for each based off {rating_type}. Make "
+                                                        f"sure that the description is no longer than 344 characters "
+                                                        f"long. {additional_details}"},
                         ]
 
                         listicle_response_message = [
@@ -450,7 +445,7 @@ with gr.Blocks() as demo:
                             ]
 
                             listicle_json_messages.extend(messages)
-                            json_format = "{name: <string>, description: <string>, rating: <int>"  # TODO: image names, when saved, should be kebab-cased 'name' field (i'll need to update the image processing code as well)
+                            json_format = "{name: <string>, description: <string>, rating: <int>"
                             if association is not None and association != "":  # Add association field if provided
                                 json_format += ", association: <string>"
                             json_format += "}"
@@ -484,11 +479,9 @@ with gr.Blocks() as demo:
 
                             listicle_json = resp.message.content
 
-                            # TODO - image generation
-                            # Parse the listicle_json string as JSON and generate images for each 'item's 'description' field.
+                            # Generate images for each item in the listicle
                             listicle_json_data = json.loads(listicle_json)
-
-                            for item in listicle_json_data["items"]:
+                            for index, item in enumerate(listicle_json_data["items"]):
                                 description = item["description"]
                                 name = item["name"]
 
@@ -498,15 +491,18 @@ with gr.Blocks() as demo:
                                     size="1024x1792" if api_image_model == "dall-e-3" else "1024x1024",
                                     n=1,
                                     quality="hd" if api_image_model == "dall-e-3" else "standard",
-                                    response_format="b64_json",
+                                    response_format="url",
                                 )
-                                b64_json_image = listicle_image_response.data[0].b64_json
-                                if b64_json_image is None or b64_json_image == "":
-                                    gr.Warning(f"No image generated for {name}.")
-                                    continue
-                                img_bytes = base64.b64decode(b64_json_image)
-                                img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_UNCHANGED)
-                                listicle_images += [img]
+
+                                # The actual image name (+ orig_name) is  <>.png, but the tmp file created and sent to
+                                # batch is based on the portion after the last `/` in the url without the '%' (looks url encoded).
+                                image_url = listicle_image_response.data[0].url
+                                item["image"] = url_path_to_image_name(image_url)
+
+                                listicle_images.append(image_url)
+
+                        # Because the json data was updated above, we need to re-serialize it.
+                        listicle_json = json.dumps(listicle_json_data, indent=4)
 
                         return listicle_content, listicle_json, listicle_images
 
@@ -534,7 +530,7 @@ with gr.Blocks() as demo:
                                 continue
 
                             # Get the name of the image from the JSON data
-                            filename = f"{index}.{image_type}"
+                            filename = f"{url_path_to_image_name(image.path)}.{image_type}"
                             filepath = os.path.join(dir, filename)
 
                             img = cv2.imread(image.path, cv2.IMREAD_UNCHANGED)
@@ -548,6 +544,19 @@ with gr.Blocks() as demo:
 
                         gr.Info(f"Saved generated artifacts to {dir}.")
 
+                    def send_artifacts_to_batch(listicle_images, json_data):
+                        if not listicle_images or len(listicle_images.root) == 0:
+                            gr.Warning("No images to send.")
+                            return
+                        if not json_data or len(json_data) == 0:
+                            gr.Warning("No JSON data to send.")
+                            return
+                        # Parse the listicle_images GalleryData to get file paths
+                        listicle_images = listicle_images.root
+                        listicle_images = [image.image.path for image in listicle_images]
+                        return listicle_images, json_data
+
+
                 with gr.Column():
                     listicle_output = gr.TextArea(label="Listicle", show_label=False,
                                                   placeholder="Your generated Listicle will appear here.", lines=15,
@@ -557,21 +566,25 @@ with gr.Blocks() as demo:
                     listicle_image_output = gr.Gallery(label="Generated Images")
                     with gr.Column():
                         with gr.Group():
-                            image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png", interactive=True)
+                            image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png",
+                                                     interactive=True)
                             download_artifacts_button = gr.Button("Download Artifacts", variant="primary")
-                        with gr.Row():
-                            send_artifacts_to_single = gr.Button("Send Artifacts to Single Processing", variant="secondary")
-                            send_artifacts_to_batch = gr.Button("Send Artifacts to Batch Processing", variant="secondary")
-
+                        with gr.Group():
+                            with gr.Row():
+                                send_artifacts_to_single_button = gr.Button("Send Artifacts to Single Processing",
+                                                                            variant="secondary")
+                                send_artifacts_to_batch_button = gr.Button("Send Artifacts to Batch Processing",
+                                                                           variant="secondary")
                 generate_listicle_button.click(generate_listicle,
                                                inputs=[api_key, api_text_model, api_image_model, num_items, topic,
                                                        association, rating_type, details, generate_artifacts],
-                                               outputs=[listicle_output, listicle_json_output, listicle_image_output])
+                                               outputs=[listicle_output, listicle_json_output, listicle_image_output]) # The issue could be with listicle_image_output since there is were it create tmp files all named 'image.png'...
                 download_artifacts_button.click(
                     save_artifacts,
                     inputs=[listicle_image_output, image_type, listicle_json_output],
                     outputs=[]
                 )
+
         with gr.Tab("Manual"):
             gr.Markdown("Create images one-by-one.")
             gr.Markdown("TODO")
@@ -580,11 +593,13 @@ with gr.Blocks() as demo:
                 gr.Markdown("# Input")
                 with gr.Row(equal_height=False):
                     with gr.Column(scale=2):
-                        input_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
+                        input_batch_images = gr.File(file_types=["image"], file_count="multiple", label="Upload Image(s)")
                     with gr.Column():
-                        input_json = gr.File(file_types=[".json"], file_count="single", label="Upload JSON",
-                                             interactive=True)
-                        validate_json_button = gr.Button("Validate JSON", variant="secondary")
+                        input_batch_json = gr.Code("{}", language="json", label="Configuration (JSON)", lines=10)
+                        with gr.Group():
+                            with gr.Row():
+                                upload_json_button = gr.Button("Upload JSON", variant="secondary") # TODO implement ability to update json code based on file
+                                validate_json_button = gr.Button("Validate JSON", variant="secondary")
                 with gr.Accordion("Important Notes", open=False):
                     gr.Markdown(
                         "When using the automatic JSON parser, make sure that the number of images and the number of "
@@ -592,7 +607,7 @@ with gr.Blocks() as demo:
                     gr.Markdown("""JSON **data** should be in the following format
                                 ```json
                                 {
-                                    "month": <string>,
+                                    "association": <string>,
                                     "name": <string>,
                                     "description": <string>,
                                     "rating": <int>,
@@ -608,28 +623,16 @@ with gr.Blocks() as demo:
                 with gr.Column(scale=3):
                     gr.Markdown("# Parameters")
                     with gr.Row(equal_height=False):
-                        _, _, (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters(
-                            "Name",
-                            default_font_size=117)
-                        _, _, (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters(
-                            "Description",
-                            default_font_size=42)
+                        (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = image_editor_parameters(
+                            "Name", default_font_size=117)
+                        (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = image_editor_parameters(
+                            "Description",default_font_size=42)
                     with gr.Row(equal_height=False):
-                        _, _, (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters(
-                            "Month",
-                            default_font_size=145)
+                        (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = image_editor_parameters(
+                            "Association", default_font_size=145)
 
-
-                        def rating_text_input_fn():
-                            return gr.Dropdown(["Comfortability", "Survivability"],
-                                               label="Rating Text", value="Comfortability", interactive=True,
-                                               allow_custom_value=True)
-
-
-                        rating_text, _, (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (
-                            rbe, rbc, rbo) = image_editor_parameters("Rating",
-                                                                     default_font_size=55,
-                                                                     pre_opt_render_fn=rating_text_input_fn)
+                        (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = image_editor_parameters(
+                            "Rating", default_font_size=55)
 
                 with gr.Column(scale=1):
                     gr.Markdown("# Output")
@@ -639,13 +642,19 @@ with gr.Blocks() as demo:
                                                  interactive=True)
                         save_button = gr.Button("Save to Disk", variant="primary")
 
-    process_button.click(process, inputs=[input_images, input_json,
+        send_artifacts_to_batch_button.click(
+            send_artifacts_to_batch,
+            inputs=[listicle_image_output, listicle_json_output], # an issue is that the listicle_image_output is a GalleryData object which (currently) are stored temporarily as 'image.png' in the tmp folder. I need to figure out how to get the original name of the image so that it can be used as a reference in the json data.
+            outputs=[input_batch_images, input_batch_json]
+        )
+
+    process_button.click(process, inputs=[input_batch_images, input_batch_json,
                                           nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
                                           dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
                                           mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-                                          rating_text, rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
+                                          rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
                                           ], outputs=[output_preview])
-    validate_json_button.click(validate_json, inputs=[input_json], outputs=[])
+    validate_json_button.click(validate_json, inputs=[input_batch_json], outputs=[])
     save_button.click(save_to_disk, inputs=[output_preview, image_type], outputs=[])
     reset_parameters_button.click(reset_parameters, inputs=[], outputs=[])
 
