@@ -19,6 +19,7 @@ import uuid
 # TODO: Since it's chatGPT it could sometimes deny a request due to content filters.
 #   Workaround: Add support for local stable diffusion models/generations?
 # TODO: Add some form of 'streaming' so the generated data gets displayed as it's generated.
+# TODO: When saving images to disk (batch), store under a uuid4 folder to group.
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -491,7 +492,7 @@ with gr.Blocks() as demo:
                                 name = item["name"]
 
                                 listicle_image_response = openai.images.generate(
-                                    prompt=f"Generate an image depicting {name}. Described as: {description}. NO TEXT.",
+                                    prompt=f"Generate an image depicting {name}. Described as: {description}. NO TEXT.",  # TODO: there's still text sometimes...
                                     model=api_image_model,
                                     size="1024x1792" if api_image_model == "dall-e-3" else "1024x1024",
                                     n=1,
