@@ -197,7 +197,7 @@ def process(image_files, json_data,
     return images
 
 
-with gr.Blocks() as demo:
+with gr.Blocks() as WebApp:
     gr.Markdown("# inf0 TikTok Tools")
 
     with gr.Tab("Listicle Template"):
@@ -450,5 +450,5 @@ with gr.Blocks() as demo:
     validate_json_button.click(validate_json, inputs=[input_batch_json], outputs=[])
     save_button.click(image_processing.save_images_to_disk, inputs=[output_preview, image_type], outputs=[])
 
-if __name__ == "__main__":
-    demo.launch()
+# if __name__ == "__main__":
+#     WebApp.launch()
