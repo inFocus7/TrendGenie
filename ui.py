@@ -19,7 +19,6 @@ import uuid
 # TODO: Since it's chatGPT it could sometimes deny a request due to content filters.
 #   Workaround: Add support for local stable diffusion models/generations?
 # TODO: Add some form of 'streaming' so the generated data gets displayed as it's generated.
-# TODO: When saving images to disk (batch), store under a uuid4 folder to group.
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -325,10 +324,12 @@ def save_to_disk(images, image_type, dir="images/output"):
 
     date = datetime.now().strftime("%m%d%Y")
 
-    dir = f"{dir}/{date}"
+    unique_id = uuid.uuid4()
+    dir = f"{dir}/{date}/{unique_id}"
     if not os.path.exists(dir):
         os.makedirs(dir)
 
+    # TODO use better names for generated images?
     for index, image in enumerate(images.root):
         image = image.image
         if image.path is None:
