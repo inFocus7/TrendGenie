@@ -2,10 +2,10 @@ import json
 import gradio as gr
 import os
 import glob
-from openai import OpenAI
 import utils.image as image_utils
 import processing.image as image_processing
 import api.chatgpt as chatgpt_api
+import inflect
 
 # TODO: Add support to save a template for later use.
 #   This would allow for multiple saved templates for quick style switching.
@@ -14,11 +14,14 @@ import api.chatgpt as chatgpt_api
 #   Workaround: Add support for local stable diffusion models/generations?
 # TODO: Add some form of 'streaming' so the generated data gets displayed as it's generated.
 # TODO: In the batch creator, add a section in parameters to create a cover image. It should take in a title, subtitle,
+# TODO: In the batch creator, add a section in parameters to create a cover image. It should take in a title, subtitle,
 #   and image. The image should be able to be uploaded or generated.
 #   Actually how would generation work? I'm assuming users would want it generated as well.
 #     Maybe when generating the pictures, it generates a cover image as well and the JSON will have a top-level 'cover'
 #     field with {image, title, subtitle}.
 # TODO: Add reset parameters button.
+
+p = inflect.engine()
 
 font_files = []
 # TODO: Add support for Windows and Linux.
@@ -218,7 +221,7 @@ with gr.Blocks() as WebApp:
                         with gr.Row():
                             topic = gr.Dropdown(["scary rooms", "fantasy environments"], label="Topic",
                                                 value="scary rooms", interactive=True, allow_custom_value=True,
-                                                info="The topic of the listicle (keep it short).")
+                                                info="The topic of the listicle. (noun)")
                             association = gr.Dropdown(["birth month", "astrological sign"], label="Association",
                                                       value="birth month", info="What to associate each item with.",
                                                       allow_custom_value=True)
@@ -282,14 +285,25 @@ with gr.Blocks() as WebApp:
                             listicle_json = chatgpt_api.get_chat_response(openai, json_model, role, prompt=message, context=listicle_json_context, as_json=True)
                             if listicle_json is None or listicle_json == "":
                                 return listicle_content, None, None
-
-                            # Generate images for each item in the listicle
                             listicle_json_data = json.loads(listicle_json)
+
+                            # This may be wonky in the case of 'glasses' -> 'glass'. The description should still be
+                            #   valid and fix it. I chose this path because it would be confusing to ChatGPT if it said
+                            #   something like 'Generate an image of a monsters...' which is grammatically incorrect.
+                            singular_topic = p.singular_noun(topic)
+                            if singular_topic is False: # If it was singular, it returns False. Keep the original.
+                                singular_topic = topic
+
+                            # Generate images for each item in the listicle.
                             for item in listicle_json_data["items"]:
                                 description = item["description"]
                                 name = item["name"]
-                                prompt = (f"Generate an image depicting {name}. Described as: {description}. Do not add "
-                                          f"any text. Make sure the image is right-side up in portrait.")
+                                # TODO: Portrait images are sideways sometimes... Judging by some threads, this is a
+                                #  known bug. I am not adding "rotate" or "portrait" because it doesn't always work and
+                                #  it costs extra tokens.
+                                prompt = (f"Generate an image of a {str.lower(singular_topic)} known as '{name}.' "
+                                          f"Described as: '{description}'. Please ensure there are no words or text on "
+                                          f"the image.")
                                 image_url = chatgpt_api.get_image_response(openai, api_image_model, prompt)
                                 if image_url is None or image_url == "":
                                     continue
