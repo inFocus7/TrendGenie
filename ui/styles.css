@@ -1,0 +1,55 @@
+.gradio-container {
+
+}
+
+#header {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+#header-logo {
+    min-width: min(90px, 100%) !important;
+}
+
+#header-title {
+    h1 {
+        justify-content: center;
+        margin: 0;
+    }
+    margin-top: .25rem;
+    margin-bottom: .5rem;
+}
+
+#header-subtitle {
+    h2 {
+        justify-content: center;
+        margin: 0;
+        font-style: italic;
+        font-weight: 300;
+        font-size: 1rem;
+        opacity: 0.6;
+    }
+}
+
+#footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    p strong {
+        color: rgb(255, 69, 147);
+    }
+}
+
+footer {
+    display: none !important;
+}

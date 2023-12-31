@@ -176,7 +176,8 @@ def process(image_files, json_data,
         img, (_, _) = image_processing.add_text(img, f'{json_data["rating_type"]}: {item["rating"]}%',
                                                 top_center + association_height + rating_offset,
                                                 rff, font_size=rfs, font_color=image_utils.get_rgba(rfc, rfo),
-                                                show_shadow=rse, shadow_radius=rsr, shadow_color=image_utils.get_rgba(rsc, rso),
+                                                show_shadow=rse, shadow_radius=rsr,
+                                                shadow_color=image_utils.get_rgba(rsc, rso),
                                                 show_background=rbe, background_color=image_utils.get_rgba(rbc, rbo))
 
         # Add name and description at the bottom center, one above the other
@@ -200,8 +201,19 @@ def process(image_files, json_data,
     return images
 
 
-with gr.Blocks() as WebApp:
-    gr.Markdown("# inf0 TikTok Tools")
+# Read the styles.css file and add it to the page.
+css_file = os.path.join(os.path.dirname(__file__), "styles.css")
+with open(css_file, "r") as file:
+    css = file.read()
+
+# gr.themes.Soft() vs gr.themes.Monochrome()? 🤔
+with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
+    # Add css to center the items
+    with gr.Column(elem_id="header"):
+        gr.Image("static/logo-v2.png", label="Logo", show_label=False, image_mode="RGBA", container=False,
+                 show_share_button=False, show_download_button=False, width=50, elem_id="header-logo")
+        gr.Markdown("# TrendGenie", elem_id="header-title")
+        gr.Markdown("## Your content creation assistant.", elem_id="header-subtitle")
 
     with gr.Tab("Listicle Template"):
         gr.Markdown("Create images in the style of those 'Your birth month is your ___' TikToks.")
@@ -254,10 +266,10 @@ with gr.Blocks() as WebApp:
 
                         role = f"You are a TikTok creator that is creating a listicle of {topic}."
                         prompt = f"Generate a list of {number_of_items} {topic}. ONLY generate {number_of_items} items. " \
-                                    f"For each item, add a unique name and description, and provide" \
-                                    f" a rating from 0-100 for each based off {rating_type}. Make " \
-                                    f"sure that the description is no longer than 344 characters " \
-                                    f"long. {additional_details}"
+                                 f"For each item, add a unique name and description, and provide" \
+                                 f" a rating from 0-100 for each based off {rating_type}. Make " \
+                                 f"sure that the description is no longer than 344 characters " \
+                                 f"long. {additional_details}"
 
                         listicle_content = chatgpt_api.get_chat_response(openai, api_text_model, role, prompt=prompt)
                         if listicle_content is None or listicle_content == "":
@@ -282,7 +294,8 @@ with gr.Blocks() as WebApp:
                                 message += (f"Include a top-level field `rating_type: <string>` with what the rating "
                                             f"represents.")
 
-                            listicle_json = chatgpt_api.get_chat_response(openai, json_model, role, prompt=message, context=listicle_json_context, as_json=True)
+                            listicle_json = chatgpt_api.get_chat_response(openai, json_model, role, prompt=message,
+                                                                          context=listicle_json_context, as_json=True)
                             if listicle_json is None or listicle_json == "":
                                 return listicle_content, None, None
                             listicle_json_data = json.loads(listicle_json)
@@ -291,7 +304,7 @@ with gr.Blocks() as WebApp:
                             #   valid and fix it. I chose this path because it would be confusing to ChatGPT if it said
                             #   something like 'Generate an image of a monsters...' which is grammatically incorrect.
                             singular_topic = p.singular_noun(topic)
-                            if singular_topic is False: # If it was singular, it returns False. Keep the original.
+                            if singular_topic is False:  # If it was singular, it returns False. Keep the original.
                                 singular_topic = topic
 
                             # Generate images for each item in the listicle.
@@ -391,6 +404,7 @@ with gr.Blocks() as WebApp:
                                 upload_json = gr.File(label="Upload JSON", file_types=[".json"])
                                 set_json_button = gr.Button("Set JSON", variant="secondary")
 
+
                         def set_json(json_file):
                             if not json_file:
                                 gr.Warning("No JSON file uploaded. Reverse to default.")
@@ -455,6 +469,9 @@ with gr.Blocks() as WebApp:
             outputs=[input_batch_images, input_batch_json]
         )
 
+    # Add a footer
+    gr.Markdown("**Made by inf0.**", elem_id="footer")
+
     process_button.click(process, inputs=[input_batch_images, input_batch_json,
                                           nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
                                           dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
@@ -464,5 +481,5 @@ with gr.Blocks() as WebApp:
     validate_json_button.click(validate_json, inputs=[input_batch_json], outputs=[])
     save_button.click(image_processing.save_images_to_disk, inputs=[output_preview, image_type], outputs=[])
 
-# if __name__ == "__main__":
-#     WebApp.launch()
+if __name__ == "__main__":
+    WebApp.launch()
