@@ -12,7 +12,7 @@
 }
 
 #header-logo {
-    min-width: min(90px, 100%) !important;
+    min-width: min(80px, 100%) !important;
 }
 
 #header-title {
@@ -20,7 +20,7 @@
         justify-content: center;
         margin: 0;
     }
-    margin-top: .25rem;
+    margin-top: .4rem;
     margin-bottom: .5rem;
 }
 
@@ -38,13 +38,31 @@
 #footer {
     display: flex;
     flex-direction: column;
-    gap: 0;
     justify-content: center;
     align-items: center;
     text-align: center;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    background: rgba(255, 255, 255, 0.05) !important;
+    div {
+        background: unset !important;
+    }
+}
+
+#footer-logo {
     padding: 0;
-    margin-top: 2rem;
-    margin-bottom: 2rem;
+    width: 35px !important;
+    min-width: unset !important;
+    align-self: center;
+    margin-top: 0.3rem;
+    margin-bottom: 0.3rem;
+    img {
+        mix-blend-mode: screen;
+    }
+}
+
+#footer-text {
+    padding: 0;
     p strong {
         color: rgb(255, 69, 147);
     }

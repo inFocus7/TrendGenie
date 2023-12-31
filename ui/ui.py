@@ -470,7 +470,11 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
         )
 
     # Add a footer
-    gr.Markdown("**Made by inf0.**", elem_id="footer")
+    with gr.Group(elem_id="footer"):
+        gr.Image("static/hero-face.svg", label="Logo", show_label=False,
+                 image_mode="RGBA", container=False, width=50, elem_id="footer-logo",
+                 show_download_button=False,show_share_button=False)
+        gr.Markdown("**Made by [inf0](https://github.com/infocus7).**", elem_id="footer-text")
 
     process_button.click(process, inputs=[input_batch_images, input_batch_json,
                                           nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
@@ -481,5 +485,5 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
     validate_json_button.click(validate_json, inputs=[input_batch_json], outputs=[])
     save_button.click(image_processing.save_images_to_disk, inputs=[output_preview, image_type], outputs=[])
 
-if __name__ == "__main__":
-    WebApp.launch()
+# if __name__ == "__main__":
+#     WebApp.launch()
