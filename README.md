@@ -32,8 +32,6 @@ The listicle tools are the following:
      , and association (zodiac sign). From this listicle a JSON is then generated which can be used for a later media
      generation step.
 - Media Generation
-  - Single Image Processing
-    - To-be-implemented
   - Multi-Image Processing
     - Using a list of local images and a JSON describing what you want on each image, the image processing tool will
       process the list of images and add relevant text on each image. After doing so, you can download the images and 
