@@ -1,0 +1,73 @@
+.gradio-container {
+
+}
+
+#header {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+#header-logo {
+    min-width: min(80px, 100%) !important;
+}
+
+#header-title {
+    h1 {
+        justify-content: center;
+        margin: 0;
+    }
+    margin-top: .4rem;
+    margin-bottom: .5rem;
+}
+
+#header-subtitle {
+    h2 {
+        justify-content: center;
+        margin: 0;
+        font-style: italic;
+        font-weight: 300;
+        font-size: 1rem;
+        opacity: 0.6;
+    }
+}
+
+#footer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    background: rgba(255, 255, 255, 0.05) !important;
+    div {
+        background: unset !important;
+    }
+}
+
+#footer-logo {
+    padding: 0;
+    width: 35px !important;
+    min-width: unset !important;
+    align-self: center;
+    margin-top: 0.3rem;
+    margin-bottom: 0.3rem;
+    img {
+        mix-blend-mode: screen;
+    }
+}
+
+#footer-text {
+    padding: 0;
+    p strong {
+        color: rgb(255, 69, 147);
+    }
+}
+
+footer {
+    display: none !important;
+}
