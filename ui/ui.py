@@ -7,24 +7,9 @@ import processing.image as image_processing
 import api.chatgpt as chatgpt_api
 import inflect
 
-# TODO: Add support to save a template for later use.
-#   This would allow for multiple saved templates for quick style switching.
-# TODO: Since it's chatGPT it's possible the 'items' field does not get created and results in an error.
-# TODO: Since it's chatGPT it could sometimes deny a request due to content filters.
-#   Workaround: Add support for local stable diffusion models/generations?
-# TODO: Add some form of 'streaming' so the generated data gets displayed as it's generated.
-# TODO: In the batch creator, add a section in parameters to create a cover image. It should take in a title, subtitle,
-# TODO: In the batch creator, add a section in parameters to create a cover image. It should take in a title, subtitle,
-#   and image. The image should be able to be uploaded or generated.
-#   Actually how would generation work? I'm assuming users would want it generated as well.
-#     Maybe when generating the pictures, it generates a cover image as well and the JSON will have a top-level 'cover'
-#     field with {image, title, subtitle}.
-# TODO: Add reset parameters button.
-
 p = inflect.engine()
 
 font_files = []
-# TODO: Add support for Windows and Linux.
 fonts_dirs = ["/Library/Fonts", "~/Library/Fonts", "System/Library/Fonts"]
 for fonts_dir in fonts_dirs:
     fonts_dir = os.path.expanduser(fonts_dir)
@@ -258,7 +243,6 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
                             return None, None, None
 
                         listicle_images = []
-                        # TODO: Make prompts more efficient (token) to save on costs.
                         additional_details = ""
                         if association is not None and association != "":
                             additional_details += f"Associate each item with a(n) {association}."
@@ -311,9 +295,6 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
                             for item in listicle_json_data["items"]:
                                 description = item["description"]
                                 name = item["name"]
-                                # TODO: Portrait images are sideways sometimes... Judging by some threads, this is a
-                                #  known bug. I am not adding "rotate" or "portrait" because it doesn't always work and
-                                #  it costs extra tokens.
                                 prompt = (f"Generate an image of a {str.lower(singular_topic)} known as '{name}.' "
                                           f"Described as: '{description}'. Please ensure there are no words or text on "
                                           f"the image.")
@@ -389,7 +370,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
 
         with gr.Tab("Manual"):
             gr.Markdown("Create images one-by-one.")
-            gr.Markdown("TODO")
+            gr.Markdown("NotImplemented")
         with gr.Tab("Batch"):
             with gr.Column():
                 gr.Markdown("# Input")
