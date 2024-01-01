@@ -44,6 +44,14 @@ displayed. Just access it to use TrendGenie.
 
 I will create a Dockerfile setup soon and look into Python's requirements.txt setup to make this easier.
 
+### Example
+
+#### Listicle Generation
+
+**Step 1. Generation via OpenAI**  |  **Step 2. Image Processing (Batch)**
+:-------------------------:|:-------------------------:
+<img src="https://github.com/inFocus7/TrendGenie/assets/17038760/ca06886f-6868-4ef6-bffb-5da570145559" width=700 alt="Content Generation"/> | <img src="https://github.com/inFocus7/TrendGenie/assets/17038760/86bda4b0-d482-4bd6-8fd8-f6c12e27c27c" width=700 alt="Image Processing"/>
+
 ## FAQs (by me)
 - Why is the code so messy?
     - I am bad at Python, and have main-ed Go, C++, and React. I chose Python as it seemed like one of the simpler 
