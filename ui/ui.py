@@ -10,13 +10,21 @@ import inflect
 p = inflect.engine()
 
 font_files = []
-fonts_dirs = ["/Library/Fonts", "~/Library/Fonts", "System/Library/Fonts"]
+
+fonts_dirs = [
+    # MacOS
+    "/Library/Fonts", "~/Library/Fonts", "System/Library/Fonts",
+    # Linux
+    "/usr/share/fonts", "~/.fonts",
+    # Windows
+    "C:\\Windows\\Fonts"
+]
 for fonts_dir in fonts_dirs:
     fonts_dir = os.path.expanduser(fonts_dir)
     if not os.path.exists(fonts_dir):
         continue
-    font_files += glob.glob(os.path.join(fonts_dir, "*.ttf"))
-    font_files += glob.glob(os.path.join(fonts_dir, "*.otf"))
+    font_files += glob.glob(os.path.join(fonts_dir, "**/*.ttf"), recursive=True)
+    font_files += glob.glob(os.path.join(fonts_dir, "**/*.otf"), recursive=True)
 # Create a dictionary mapping font names to file paths
 font_dict = {os.path.basename(font_file).rsplit('.', 1)[0]: font_file for font_file in font_files}
 font_names = list(font_dict.keys())
@@ -45,7 +53,7 @@ def bind_checkbox_to_visibility(checkbox, group):
 def render_image_editor_parameters(name, default_font_size=55):
     with gr.Accordion(label=name):
         with gr.Column():
-            font_font = gr.Dropdown(font_names, value=font_names[0], label="Font", info=f'The font used for the text.')
+            font_font = gr.Dropdown(font_names, value=font_names[0] if len(font_names) > 0 else None, label="Font", info=f'The font used for the text.')
             with gr.Group():
                 font_color, font_opacity = render_color_opacity_picker()
                 font_size = gr.Number(default_font_size, label="Font Size", info=f'The size of the font.')

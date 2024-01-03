@@ -39,12 +39,37 @@ The listicle tools are the following:
 
 ## How do I use it?
 
-To run TrendGenie locally, you will need to run the `main.py` file and in the console the link to the web app will be
-displayed. Just access it to use TrendGenie.
+The web ui will then be available at `localhost:7860` after running. 
 
-I will create a Dockerfile setup soon and look into Python's requirements.txt setup to make this easier.
+If you're running through Docker, you'll need to make sure that the local volume exists so that stored images can be 
+saved. By default, the make target's local volume mount for generated images is `~/trengenie/images`.
 
-### Example
+Running locally, the images are stored in the root `/trendgenie/images`. While this is not ideal, it is a side effect so 
+that we easily mount the volume when running through Docker.
+
+### Local
+
+```shell
+pip install -r requirements.txt
+python main.py
+```
+
+### Docker
+
+
+```shell
+docker build -t trendgenie .
+docker run -p 7860:7860 trendgenie -v /path/to/images:/trendgenie/images
+```
+
+### Makefile
+
+Using the Makefile would be a slightly quicker way to do this. The `run` command will build the Dockerfile and then run
+it locally.
+
+```shell
+make run
+```
 
 #### Listicle Generation
 
