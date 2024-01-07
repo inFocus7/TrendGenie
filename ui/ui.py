@@ -6,20 +6,42 @@ import utils.image as image_utils
 import processing.image as image_processing
 import api.chatgpt as chatgpt_api
 import inflect
+from fontTools.ttLib import TTFont
 
 p = inflect.engine()
 
 font_files = []
-fonts_dirs = ["/Library/Fonts", "~/Library/Fonts", "System/Library/Fonts"]
+
+fonts_dirs = [
+    # MacOS
+    "/Library/Fonts", "~/Library/Fonts", "System/Library/Fonts",
+    # Linux
+    "/usr/share/fonts", "~/.fonts",
+    # Windows
+    "C:\\Windows\\Fonts"
+]
 for fonts_dir in fonts_dirs:
     fonts_dir = os.path.expanduser(fonts_dir)
     if not os.path.exists(fonts_dir):
         continue
-    font_files += glob.glob(os.path.join(fonts_dir, "*.ttf"))
-    font_files += glob.glob(os.path.join(fonts_dir, "*.otf"))
-# Create a dictionary mapping font names to file paths
-font_dict = {os.path.basename(font_file).rsplit('.', 1)[0]: font_file for font_file in font_files}
-font_names = list(font_dict.keys())
+    font_files += glob.glob(os.path.join(fonts_dir, "**/*.ttf"), recursive=True)
+    font_files += glob.glob(os.path.join(fonts_dir, "**/*.otf"), recursive=True)
+
+font_families = {}
+for font_file in font_files:
+    font = TTFont(font_file)
+    name = font['name']
+    family_name = ""
+    style_name = ""
+    for record in name.names:
+        if record.nameID == 1 and b'\000' in record.string:
+            family_name = record.string.decode('utf-16-be').rstrip('\0')
+        elif record.nameID == 2 and b'\000' in record.string:
+            style_name = record.string.decode('utf-16-be').rstrip('\0')
+    if family_name and style_name:
+        if family_name not in font_families:
+            font_families[family_name] = {}
+        font_families[family_name][style_name] = font_file
 
 DEBUG = False
 
@@ -27,9 +49,8 @@ DEBUG = False
 def render_color_opacity_picker():
     with gr.Group():
         with gr.Row():
-            color = gr.ColorPicker(label="Font Color", info=f'The color of the text.', scale=1)
-            opacity = gr.Slider(0, 100, value=100, label="Opacity",
-                                info=f'How opaque the object is. 0 = transparent, 100 = solid.', scale=2)
+            color = gr.ColorPicker(label="Font Color", scale=1)
+            opacity = gr.Slider(0, 100, value=100, label="Opacity", scale=2)
 
     return color, opacity
 
@@ -45,25 +66,37 @@ def bind_checkbox_to_visibility(checkbox, group):
 def render_image_editor_parameters(name, default_font_size=55):
     with gr.Accordion(label=name):
         with gr.Column():
-            font_font = gr.Dropdown(font_names, value=font_names[0], label="Font", info=f'The font used for the text.')
+            with gr.Group():
+                with gr.Row():
+                    font_families_list = list(font_families.keys())
+                    initial_font_family = font_families_list[0]
+                    font_family = gr.Dropdown(font_families_list, value=initial_font_family, label="Font Family")
+                    font_styles_list = list(font_families[initial_font_family].keys())
+                    font_style = gr.Dropdown(font_styles_list, value=font_styles_list[0], label="Font Style")
+
+                def update_font_styles(selected_font_family):
+                    if selected_font_family is None or selected_font_family == "":
+                        return []
+                    font_syles = list(font_families[selected_font_family].keys())
+                    return gr.Dropdown(font_syles, value=font_syles[0], label="Font Style")
+
+                font_family.change(update_font_styles, inputs=[font_family], outputs=[font_style])
             with gr.Group():
                 font_color, font_opacity = render_color_opacity_picker()
-                font_size = gr.Number(default_font_size, label="Font Size", info=f'The size of the font.')
+                font_size = gr.Number(default_font_size, label="Font Size")
             with gr.Group():
-                drop_shadow_checkbox = gr.Checkbox(False, label="Enable",
-                                                   info=f'Whether or not to add a drop shadow to the text.')
+                drop_shadow_checkbox = gr.Checkbox(False, label="Enable Drop Shadow")
                 with gr.Group(visible=drop_shadow_checkbox.value) as additional_options:
                     drop_shadow_color, drop_shadow_opacity = render_color_opacity_picker()
-                    drop_shadow_radius = gr.Number(0, label="Shadow Radius", info=f'The radius of the drop shadow.')
+                    drop_shadow_radius = gr.Number(0, label="Shadow Radius")
                     bind_checkbox_to_visibility(drop_shadow_checkbox, additional_options)
             with gr.Group():
-                background_checkbox = gr.Checkbox(False, label="Enable",
-                                                  info=f'Whether or not to add a background to the text.')
+                background_checkbox = gr.Checkbox(False, label="Enable Background")
                 with gr.Group(visible=background_checkbox.value) as additional_options:
                     background_color, background_opacity = render_color_opacity_picker()
                     bind_checkbox_to_visibility(background_checkbox, additional_options)
 
-    return ((font_font, font_size, font_color, font_opacity),
+    return ((font_family, font_style, font_size, font_color, font_opacity),
             (drop_shadow_checkbox, drop_shadow_color, drop_shadow_opacity, drop_shadow_radius),
             (background_checkbox, background_color, background_opacity))
 
@@ -101,16 +134,21 @@ def validate_json(json_file):
 
 
 def process(image_files, json_data,
-            nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
-            dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
-            mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-            rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
+            nf_family, nf_style, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
+            df_family, df_style, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
+            mf_family, mf_style, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
+            rf_family, rf_style, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
     if not json_data:
         print("No JSON file uploaded.")
         return
     if not image_files:
         print("No images uploaded.")
         return
+
+    nff = font_families[nf_family][nf_style]
+    dff = font_families[df_family][df_style]
+    mff = font_families[mf_family][mf_style]
+    rff = font_families[rf_family][rf_style]
 
     if DEBUG:
         print(f"""Beginning processing with the following parameters...
@@ -223,7 +261,8 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
                                                       value="birth month", info="What to associate each item with.",
                                                       allow_custom_value=True)
                             rating_type = gr.Dropdown(["survivability", "comfortability"], label="Rating",
-                                                      value="comfortability", interactive=True, allow_custom_value=True)
+                                                      info="What the rating given represents.", value="comfortability",
+                                                      interactive=True, allow_custom_value=True)
                             num_items = gr.Number(12, label="Number of list items", minimum=1, maximum=25, step=1,
                                                   interactive=True)
                         details = gr.TextArea(label="Additional Details",
@@ -425,15 +464,14 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
                 with gr.Column(scale=3):
                     gr.Markdown("# Parameters")
                     with gr.Row(equal_height=False):
-                        (nff, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = render_image_editor_parameters(
+                        (nf_family, nf_style, nfs, nfc, nfo), (nse, nsc, nso, nsr), (nbe, nbc, nbo) = render_image_editor_parameters(
                             "Name", default_font_size=117)
-                        (dff, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = render_image_editor_parameters(
+                        (df_family, df_style, dfs, dfc, dfo), (dse, dsc, dso, dsr), (dbe, dbc, dbo) = render_image_editor_parameters(
                             "Description", default_font_size=42)
                     with gr.Row(equal_height=False):
-                        (mff, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = render_image_editor_parameters(
+                        (mf_family, mf_style, mfs, mfc, mfo), (mse, msc, mso, msr), (mbe, mbc, mbo) = render_image_editor_parameters(
                             "Association", default_font_size=145)
-
-                        (rff, rfs, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = render_image_editor_parameters(
+                        (rf_family, rf_style, rfs, rfc, rfo), (rse, rsc, rso, rsr), (rbe, rbc, rbo) = render_image_editor_parameters(
                             "Rating", default_font_size=55)
 
                 with gr.Column(scale=1):
@@ -458,10 +496,10 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
         gr.Markdown("**Made by [inf0](https://github.com/infocus7).**", elem_id="footer-text")
 
     process_button.click(process, inputs=[input_batch_images, input_batch_json,
-                                          nff, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
-                                          dff, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
-                                          mff, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-                                          rff, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
+                                          nf_family, nf_style, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
+                                          df_family, df_style, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
+                                          mf_family, mf_style, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
+                                          rf_family, rf_style, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo
                                           ], outputs=[output_preview])
     validate_json_button.click(validate_json, inputs=[input_batch_json], outputs=[])
     save_button.click(image_processing.save_images_to_disk, inputs=[output_preview, image_type], outputs=[])

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 import os
 import cv2
+from pathlib import Path
 
 
 def add_background(image_pil, draw, position, text, font, padding=(15, 5), fill_color=(0, 0, 0, 255), border_radius=0):
@@ -49,14 +50,16 @@ def read_image_from_disk(filepath):
     return cv2.resize(img, (1080, 1920), interpolation=cv2.INTER_AREA)
 
 
-def save_images_to_disk(images, image_type, dir="images/output"):
+def save_images_to_disk(images, image_type, dir="trendgenie/images"):
     if not images or len(images.root) == 0:
         gr.Warning("No images to save.")
         return
 
+    base_dir = Path(dir) if Path(dir).is_absolute() else Path("/").joinpath(dir)
+
     date = datetime.now().strftime("%m%d%Y")
     unique_id = uuid.uuid4()
-    dir = f"{dir}/{date}/{unique_id}"
+    dir = f"{base_dir}/{date}/{unique_id}"
 
     if not os.path.exists(dir):
         os.makedirs(dir)
