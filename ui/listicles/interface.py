@@ -28,11 +28,11 @@ def render_image_editor_parameters(name):
 
 def render_listicles_section():
     gr.Markdown("Create images in the style of those 'Your birth month is your ___' TikToks.")
-    with gr.Tab("Generate"):
+    with gr.Tab("Generate Images"):
         _, send_artifacts_to_batch_button ,listicle_image_output, listicle_json_output  = render_generate_section()
-    with gr.Tab("Single"):
+    with gr.Tab("Single Image Processing"):
         render_single_section()
-    with gr.Tab("Batch"):
+    with gr.Tab("Batch Image Processing"):
         input_batch_images, input_batch_json = render_batch_section()
 
     send_artifacts_to_batch_button.click(
@@ -142,7 +142,7 @@ def render_generate_section():
     with gr.Row():
         api_key = gr.Textbox(label="OpenAI API Key",
                              placeholder="Leave empty to use the OPENAI_API_KEY environment variable.",
-                             lines=1, interactive=True)
+                             lines=1, interactive=True, type="password")
         api_text_model = gr.Dropdown(["gpt-3.5-turbo", "gpt-4"], label="API Model", value="gpt-3.5-turbo",
                                      interactive=True)
         api_image_model = gr.Dropdown(["dall-e-2", "dall-e-3"], label="API Image Model", value="dall-e-2",
@@ -160,7 +160,7 @@ def render_generate_section():
                     rating_type = gr.Dropdown(["survivability", "comfortability"], label="Rating",
                                               info="What the rating given represents.", value="comfortability",
                                               interactive=True, allow_custom_value=True)
-                    num_items = gr.Number(12, label="Number of list items", minimum=1, maximum=25, step=1,
+                    num_items = gr.Number(12, label="Number of items", minimum=1, maximum=25, step=1,
                                           interactive=True)
                 details = gr.TextArea(label="Additional Details",
                                       placeholder="Additional details about the listicle.",

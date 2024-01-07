@@ -35,6 +35,12 @@
     }
 }
 
+.video-output {
+    .icon-buttons {
+        display: none;
+    }
+}
+
 #footer {
     display: flex;
     flex-direction: column;

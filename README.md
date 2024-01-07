@@ -44,8 +44,7 @@ The web ui will then be available at `localhost:7860` after running.
 If you're running through Docker, you'll need to make sure that the local volume exists so that stored images can be 
 saved. By default, the make target's local volume mount for generated images is `~/trengenie/images`.
 
-Running locally, the images are stored in the root `/trendgenie/images`. While this is not ideal, it is a side effect so 
-that we easily mount the volume when running through Docker.
+Running locally, content is stored in `~/trendgenie`.
 
 ### Local
 

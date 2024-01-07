@@ -1,6 +1,7 @@
 import gradio as gr
 import os
 import ui.listicles.interface as listicle_interface
+import ui.music.interface as music_interface
 
 # Read the styles.css file and add it to the page.
 css_file = os.path.join(os.path.dirname(__file__), "styles.css")
@@ -15,8 +16,10 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
         gr.Markdown("# TrendGenie", elem_id="header-title")
         gr.Markdown("## Your content creation assistant.", elem_id="header-subtitle")
     # Content
-    with gr.Tab("Listicle Template"):
+    with gr.Tab("Listicles"):
         listicle_interface.render_listicles_section()
+    with gr.Tab("Music Covers"):
+        music_interface.render_music_section()
     # Footer
     with gr.Group(elem_id="footer"):
         gr.Image("static/hero-face.svg", label="Logo", show_label=False,
