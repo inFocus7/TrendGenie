@@ -211,7 +211,7 @@ def generate_listicle(api_key, api_text_model, api_image_model, number_of_items,
             prompt = (f"Generate an image of a {str.lower(singular_topic)} known as '{name}.' "
                       f"Described as: '{description}'. Please ensure there are no words or text on "
                       f"the image.")
-            image_url = chatgpt_api.get_image_response(openai, api_image_model, prompt)
+            image_url = chatgpt_api.get_image_response(openai, api_image_model, prompt, portrait=True)
             if image_url is None or image_url == "":
                 continue
 

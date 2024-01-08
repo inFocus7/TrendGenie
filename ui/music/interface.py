@@ -2,12 +2,14 @@ import gradio as gr
 import utils.gradio as gru
 from ui.music.utils import *
 import processing.video as video_processing
+import processing.image as image_processing
+import ui.components.openai as openai_components
 
 
 def render_music_section():
     gr.Markdown("Create a cover and a simple video for your music!")
     with gr.Tab("Generate Cover"):
-        render_generate_cover()
+        send_cover_to_process_button, send_cover_to_music_video_button = render_generate_cover()
     with gr.Tab("Process Cover Image"):
         render_process_cover()
     with gr.Tab("Create Music Video"):
@@ -15,7 +17,23 @@ def render_music_section():
 
 
 def render_generate_cover():
-    gr.Markdown("TODO")
+    api_key, _, api_image_model = openai_components.render_openai_setup(show_text_model=False)
+    with gr.Row(equal_height=False):
+        with gr.Group():
+            image_prompt = gr.Textbox(label="Image Prompt", lines=6, max_lines=10)
+            generate_image_button = gr.Button(value="Generate Image", variant="primary")
+        with gr.Column():
+            with gr.Group():
+                image_output, image_name, image_suffix, save_image_button = image_processing.render_image_output()
+            with gr.Group():
+                with gr.Row():
+                    send_to_process_button = gr.Button("Send Image to 'Process Cover Image'", variant="secondary")
+                    send_to_create_video_button = gr.Button("Send Image to 'Create Music Video'", variant="secondary")
+
+    generate_image_button.click(generate_cover_image, inputs=[api_key, api_image_model, image_prompt],
+                                outputs=[image_output])
+
+    return send_to_process_button, send_to_create_video_button
 
 
 def render_process_cover():
@@ -43,11 +61,7 @@ def render_music_video_creation():
 
     gr.Markdown("## Output")
     with gr.Group():
-        video_output = gr.Video(elem_classes=["video-output"], label="Video Output", interactive=False)
-        with gr.Row():
-            video_name = gr.Textbox(label="Name", lines=1, max_lines=1, scale=2)
-            video_suffix = gr.Dropdown([".mp4", ".mov"], value=".mp4", label="File Type", allow_custom_value=False)
-        save_video_button = gr.Button("Save To Disk", variant="primary")
+        video_output, video_name, video_suffix, save_video_button = video_processing.render_video_output()
 
     create_video_button.click(create_music_video, inputs=[cover_image, audio_filepath, fps,
                                                           artist_name, artist_ffamily, artist_fstyle, artist_fsize,

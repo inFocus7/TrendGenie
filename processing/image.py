@@ -12,6 +12,19 @@ import utils.path_handler as path_handler
 image_folder = "images"
 default_path = os.path.join(path_handler.get_default_path(), image_folder)
 
+
+def render_image_output():
+    image_output = gr.Image(elem_classes=["image-output"],
+                            label="Image Output", interactive=False,
+                            show_download_button=False)
+    with gr.Row():
+        image_name = gr.Textbox(label="Name", lines=1, max_lines=1, scale=2)
+        image_suffix = gr.Dropdown([".png", ".jpg", ".webp"], value=".png", label="File Type", allow_custom_value=False)
+    save_image_button = gr.Button("Save To Disk", variant="primary")
+
+    return image_output, image_name, image_suffix, save_image_button
+
+
 def add_background(image_pil, draw, position, text, font, padding=(15, 5), fill_color=(0, 0, 0, 255), border_radius=0):
     # Calculate width and height of text with padding
     bbox = draw.textbbox((0, 0), text, font=font)

@@ -6,6 +6,7 @@ import utils.image as image_utils
 import numpy as np
 import tempfile
 from pathlib import Path
+import api.chatgpt as chatgpt_api
 
 
 def create_music_video(
@@ -20,7 +21,7 @@ def create_music_video(
 
     # Set up cover
     cover = Image.open(image)
-    cover.thumbnail((math.floor(width * (2/3)), math.floor(height * (2/3))))
+    cover.thumbnail((math.floor(width * (2 / 3)), math.floor(height * (2 / 3))))
     cover_width, cover_height = cover.size
     canvas.paste(cover, ((width - cover_width) // 2, (height - cover_height) // 2))
 
@@ -59,3 +60,12 @@ def create_music_video(
     video_clip.write_videofile(temp_video_path, codec="libx264", fps=fps, temp_audiofile=temp_audio_path)
 
     return temp_video_path
+
+
+def generate_cover_image(api_key, api_model, prompt):
+    client = chatgpt_api.get_openai_client(api_key)
+    image_url = chatgpt_api.get_image_response(client, api_model, prompt, portrait=False)
+    if image_url is None or image_url == "":
+        return None
+
+    return chatgpt_api.url_to_gradio_image_name(image_url)

@@ -3,6 +3,7 @@ import gradio as gr
 import processing.image as image_processing
 import json
 import ui.listicles.utils as listicle_utils
+import ui.components.openai as openai_components
 
 
 def render_image_editor_parameters(name):
@@ -139,14 +140,7 @@ def render_batch_section():
 
 def render_generate_section():
     gr.Markdown("Generate the listicle, JSON file, and images to use here using Chat-GPT.")
-    with gr.Row():
-        api_key = gr.Textbox(label="OpenAI API Key",
-                             placeholder="Leave empty to use the OPENAI_API_KEY environment variable.",
-                             lines=1, interactive=True, type="password")
-        api_text_model = gr.Dropdown(["gpt-3.5-turbo", "gpt-4"], label="API Model", value="gpt-3.5-turbo",
-                                     interactive=True)
-        api_image_model = gr.Dropdown(["dall-e-2", "dall-e-3"], label="API Image Model", value="dall-e-2",
-                                      interactive=True)
+    api_key, api_text_model, api_image_model = openai_components.render_openai_setup()
     with gr.Row(equal_height=False):
         with gr.Group():
             with gr.Group():
@@ -183,9 +177,9 @@ def render_generate_section():
                     download_artifacts_button = gr.Button("Download Artifacts", variant="primary")
                 with gr.Group():
                     with gr.Row():
-                        send_artifacts_to_single_button = gr.Button("Send Artifacts to Single Processing",
+                        send_artifacts_to_single_button = gr.Button("Send Artifacts to 'Single Processing'",
                                                                     variant="secondary")
-                        send_artifacts_to_batch_button = gr.Button("Send Artifacts to Batch Processing",
+                        send_artifacts_to_batch_button = gr.Button("Send Artifacts to 'Batch Processing'",
                                                                    variant="secondary")
         generate_listicle_button.click(listicle_utils.generate_listicle,
                                        inputs=[api_key, api_text_model, api_image_model, num_items, topic,

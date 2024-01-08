@@ -10,6 +10,16 @@ video_folder = "videos"
 default_path = os.path.join(path_handler.get_default_path(), video_folder)
 
 
+def render_video_output():
+    video_output = gr.Video(elem_classes=["video-output"], label="Video Output", interactive=False)
+    with gr.Row():
+        video_name = gr.Textbox(label="Name", lines=1, max_lines=1, scale=2)
+        video_suffix = gr.Dropdown([".mp4", ".mov"], value=".mp4", label="File Type", allow_custom_value=False)
+    save_video_button = gr.Button("Save To Disk", variant="primary")
+
+    return video_output, video_name, video_suffix, save_video_button
+
+
 def save_video_to_disk(video, name, video_suffix=".mp4", dir=default_path):
     if not video:
         gr.Warning("No video to save.")
