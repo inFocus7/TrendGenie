@@ -7,6 +7,7 @@ import numpy as np
 import tempfile
 from pathlib import Path
 import api.chatgpt as chatgpt_api
+import processing.image as image_processing
 
 
 def create_music_video(
@@ -14,6 +15,13 @@ def create_music_video(
         artist, artist_font_type, artist_font_style, artist_font_size, artist_font_color, artist_font_opacity,
         song, song_font_type, song_font_style, song_font_size, song_font_color, song_font_opacity,
         background_color=(0, 0, 0), background_opacity=66):
+    if image is None:
+        print("No cover image for the video.")
+        return
+    if audio is None:
+        print("No audio to add to the video.")
+        return
+
     # Could probably expand to 4k, but unnecessary for this type of music video
     # Maybe in a future iteration it could be worth it
     width, height = 1920, 1080
@@ -69,3 +77,40 @@ def generate_cover_image(api_key, api_model, prompt):
         return None
 
     return chatgpt_api.url_to_gradio_image_name(image_url)
+
+
+def process(image_path, artist, song,
+            af_family, af_style, afs, afc, afo, ase, asc, aso, asr, abe, abc, abo,
+            sf_family, sf_style, sfs, sfc, sfo, sse, ssc, sso, ssr, sbe, sbc, sbo):
+    if image_path is None:
+        print("No image to modify.")
+        return
+
+    font_families = font_manager.get_fonts()
+    aff = font_families[af_family][af_style]
+    sff = font_families[sf_family][sf_style]
+
+    img = image_processing.read_image_from_disk(image_path)
+
+    # Calculate positions for the text
+    top_center = int(img.shape[0] * 0.13)
+    bottom_center = int(img.shape[0] * 0.70)
+
+    img, (_, _) = image_processing.add_text(img, artist, top_center, aff,
+                                            font_size=afs,
+                                            font_color=image_utils.get_rgba(afc, afo),
+                                            show_shadow=ase,
+                                            shadow_radius=asr,
+                                            shadow_color=image_utils.get_rgba(asc, aso),
+                                            show_background=abe,
+                                            background_color=image_utils.get_rgba(abc, abo))
+
+    img, (_, _) = image_processing.add_text(img, song, bottom_center, sff, font_size=sfs,
+                                            font_color=image_utils.get_rgba(sfc, sfo),
+                                            max_width=15,
+                                            show_shadow=sse, shadow_radius=ssr,
+                                            shadow_color=image_utils.get_rgba(ssc, sso),
+                                            show_background=sbe,
+                                            background_color=image_utils.get_rgba(sbc, sbo))
+
+    return img

@@ -46,7 +46,7 @@ def process(image_files, json_data,
                 f"Image {img_name} not found in the JSON list. Make sure the JSON contains a reference to this image.")
             continue
 
-        img = image_processing.read_image_from_disk(image_file.name)
+        img = image_processing.read_image_from_disk(image_file.name, size=(1080, 1920))
         item = json_dict[img_name]
 
         # Calculate positions for the text

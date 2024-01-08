@@ -41,6 +41,18 @@
     }
 }
 
+.single-image-input {
+    img {
+        max-height: 300px;
+    }
+}
+
+.single-image-output {
+    img {
+        max-height: 500px;
+    }
+}
+
 #footer {
     display: flex;
     flex-direction: column;

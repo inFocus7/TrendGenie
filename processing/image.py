@@ -8,21 +8,44 @@ import os
 import cv2
 from pathlib import Path
 import utils.path_handler as path_handler
+import utils.gradio as gru
 
 image_folder = "images"
 default_path = os.path.join(path_handler.get_default_path(), image_folder)
 
 
 def render_image_output():
-    image_output = gr.Image(elem_classes=["image-output"],
+    image_output = gr.Image(elem_classes=["single-image-output"],
                             label="Image Output", interactive=False,
-                            show_download_button=False)
+                            show_download_button=False, type="filepath")
     with gr.Row():
-        image_name = gr.Textbox(label="Name", lines=1, max_lines=1, scale=2)
-        image_suffix = gr.Dropdown([".png", ".jpg", ".webp"], value=".png", label="File Type", allow_custom_value=False)
-    save_image_button = gr.Button("Save To Disk", variant="primary")
+        image_name = gr.Textbox(label="Name", lines=1, max_lines=1, scale=2, interactive=True)
+        image_suffix = gr.Dropdown([".png", ".jpg", ".webp"], value=".png", label="File Type",
+                                   allow_custom_value=False, interactive=True)
+    save_image_button = gr.Button("Save To Disk", variant="primary", interactive=True)
 
     return image_output, image_name, image_suffix, save_image_button
+
+
+def render_text_editor_parameters(name):
+    with gr.Accordion(label=name):
+        with gr.Column():
+            font_family, font_style, font_color, font_opacity, font_size = gru.render_font_picker()
+            with gr.Group():
+                drop_shadow_checkbox = gr.Checkbox(False, label="Enable Drop Shadow")
+                with gr.Group(visible=drop_shadow_checkbox.value) as additional_options:
+                    drop_shadow_color, drop_shadow_opacity = gru.render_color_opacity_picker()
+                    drop_shadow_radius = gr.Number(0, label="Shadow Radius")
+                    gru.bind_checkbox_to_visibility(drop_shadow_checkbox, additional_options)
+            with gr.Group():
+                background_checkbox = gr.Checkbox(False, label="Enable Background")
+                with gr.Group(visible=background_checkbox.value) as additional_options:
+                    background_color, background_opacity = gru.render_color_opacity_picker()
+                    gru.bind_checkbox_to_visibility(background_checkbox, additional_options)
+
+    return ((font_family, font_style, font_size, font_color, font_opacity),
+            (drop_shadow_checkbox, drop_shadow_color, drop_shadow_opacity, drop_shadow_radius),
+            (background_checkbox, background_color, background_opacity))
 
 
 def add_background(image_pil, draw, position, text, font, padding=(15, 5), fill_color=(0, 0, 0, 255), border_radius=0):
@@ -60,10 +83,12 @@ def add_blurred_shadow(image_pil, text, position, font, shadow_color=(0, 0, 0), 
     image_pil.paste(blurred_shadow, (0, 0), blurred_shadow)
 
 
-def read_image_from_disk(filepath):
+def read_image_from_disk(filepath, size=None):
     img = cv2.imread(filepath, cv2.IMREAD_UNCHANGED)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)  # Convert to RGBA for PIL usage
-    return cv2.resize(img, (1080, 1920), interpolation=cv2.INTER_AREA)
+    if size:
+        img = cv2.resize(img, size, interpolation=cv2.INTER_AREA)
+    return img
 
 
 # This assumes the images are from a gallery, which is why it checks for the 'root' attribute.
@@ -94,6 +119,36 @@ def save_images_to_disk(images, image_type, dir=default_path):
         cv2.imwrite(filepath, img)
 
     gr.Info(f"Saved generated images to {dir}.")
+    return dir
+
+
+def save_image_to_disk(image_path, name, image_suffix=".png", dir=default_path):
+    if image_path is None:
+        gr.Warning("No image to save.")
+        return
+
+    base_dir = Path(dir) if Path(dir).is_absolute() else Path("/").joinpath(dir)
+
+    date = datetime.now().strftime("%m%d%Y")
+    unique_id = uuid.uuid4()
+    dir = f"{base_dir}/{date}/{unique_id}"
+
+    if name is None or name == "":
+        unique_id = uuid.uuid4()
+        name = f"{unique_id}{image_suffix}"
+    else:
+        # Remove suffix if it exists
+        name = Path(name).stem
+        name = f"{name}{image_suffix}"
+
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    filepath = os.path.join(dir, name)
+    img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    cv2.imwrite(filepath, img)
+
+    gr.Info(f"Saved generated image to {dir}.")
     return dir
 
 
