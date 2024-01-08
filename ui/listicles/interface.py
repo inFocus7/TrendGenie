@@ -8,9 +8,7 @@ import ui.components.openai as openai_components
 def render_listicles_section():
     gr.Markdown("Create images in the style of those 'Your birth month is your ___' TikToks.")
     with gr.Tab("Generate Images"):
-        _, send_artifacts_to_batch_button, listicle_image_output, listicle_json_output = render_generate_section()
-    with gr.Tab("Single Image Processing"):
-        render_single_section()
+        send_artifacts_to_batch_button, listicle_image_output, listicle_json_output = render_generate_section()
     with gr.Tab("Batch Image Processing"):
         input_batch_images, input_batch_json = render_batch_section()
 
@@ -19,11 +17,6 @@ def render_listicles_section():
         inputs=[listicle_image_output, listicle_json_output],
         outputs=[input_batch_images, input_batch_json]
     )
-
-
-def render_single_section():
-    gr.Markdown("Create images one-by-one.")
-    gr.Markdown("NotImplemented")
 
 
 def render_batch_section():
@@ -149,12 +142,8 @@ def render_generate_section():
                     image_type = gr.Dropdown(["png", "jpg", "webp"], label="Image Type", value="png",
                                              interactive=True)
                     download_artifacts_button = gr.Button("Download Artifacts", variant="primary")
-                with gr.Group():
-                    with gr.Row():
-                        send_artifacts_to_single_button = gr.Button("Send Artifacts to 'Single Processing'",
-                                                                    variant="secondary")
-                        send_artifacts_to_batch_button = gr.Button("Send Artifacts to 'Batch Processing'",
-                                                                   variant="secondary")
+                send_artifacts_to_batch_button = gr.Button("Send Artifacts to 'Batch Processing'",
+                                                           variant="secondary")
         generate_listicle_button.click(listicle_utils.generate_listicle,
                                        inputs=[api_key, api_text_model, api_image_model, num_items, topic,
                                                association, rating_type, details, generate_artifacts],
@@ -165,4 +154,4 @@ def render_generate_section():
             outputs=[]
         )
 
-    return send_artifacts_to_single_button, send_artifacts_to_batch_button, listicle_image_output, listicle_json_output
+    return send_artifacts_to_batch_button, listicle_image_output, listicle_json_output

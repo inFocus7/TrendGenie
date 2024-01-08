@@ -10,7 +10,7 @@ def render_music_section():
     gr.Markdown("Create a cover and a simple video for your music!")
     with gr.Tab("Generate Cover"):
         send_cover_to_process_button, send_cover_to_video_button, generated_image_output_path = render_generate_cover()
-    with gr.Tab("Process Cover Image"):
+    with gr.Tab("Add Text To Image"):
         send_processed_cover_to_video_button, processed_image_input, processed_image_output_path = render_process_cover()
     with gr.Tab("Create Music Video"):
         music_video_cover_image = render_music_video_creation()
@@ -37,7 +37,7 @@ def render_generate_cover():
                 image_output, image_name, image_suffix, save_image_button = image_processing.render_image_output()
             with gr.Group():
                 with gr.Row():
-                    send_to_process_button = gr.Button("Send Image to 'Process Cover Image'", variant="secondary")
+                    send_to_process_button = gr.Button("Send Image to 'Add Text to Image'", variant="secondary")
                     send_to_create_video_button = gr.Button("Send Image to 'Create Music Video'", variant="secondary")
 
     generate_image_button.click(generate_cover_image, inputs=[api_key, api_image_model, image_prompt],
@@ -66,7 +66,7 @@ def render_process_cover():
                 (sf_family, sf_style, sfs, sfc, sfo), (sse, ssc, sso, ssr), (
                     sbe, sbc, sbo) = image_processing.render_text_editor_parameters("Song Text Parameters")
 
-        process_button = gr.Button("Process Cover Image", variant="primary")
+        process_button = gr.Button("Process", variant="primary")
 
         gr.Markdown("## Output")
         with gr.Column():
