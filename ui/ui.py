@@ -18,7 +18,7 @@ with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:
     # Content
     with gr.Tab("Listicles"):
         listicle_interface.render_listicles_section()
-    with gr.Tab("Music Covers"):
+    with gr.Tab("Music Cover Videos"):
         music_interface.render_music_section()
     # Footer
     with gr.Group(elem_id="footer"):

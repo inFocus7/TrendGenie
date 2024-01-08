@@ -53,6 +53,13 @@
     }
 }
 
+.tool-description {
+    font-size: 1rem;
+    font-weight: 300;
+    font-style: italic;
+    opacity: 0.6;
+}
+
 #footer {
     display: flex;
     flex-direction: column;

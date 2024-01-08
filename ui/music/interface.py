@@ -7,7 +7,7 @@ import ui.components.openai as openai_components
 
 
 def render_music_section():
-    gr.Markdown("Create a cover and a simple video for your music!")
+    gru.render_tool_description("Create a cover and a simple video for your music!")
     with gr.Tab("Generate Cover"):
         send_cover_to_process_button, send_cover_to_video_button, generated_image_output_path = render_generate_cover()
     with gr.Tab("Add Text To Image"):

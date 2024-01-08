@@ -3,11 +3,12 @@ import processing.image as image_processing
 import json
 import ui.listicles.utils as listicle_utils
 import ui.components.openai as openai_components
+import utils.gradio as gru
 
 
 def render_listicles_section():
-    gr.Markdown("Create images in the style of those 'Your birth month is your ___' TikToks.")
-    with gr.Tab("Generate Images"):
+    gru.render_tool_description("Create images in the style of those 'Your birth month is your ___' TikToks.")
+    with gr.Tab("Generate Artifacts"):
         send_artifacts_to_batch_button, listicle_image_output, listicle_json_output = render_generate_section()
     with gr.Tab("Batch Image Processing"):
         input_batch_images, input_batch_json = render_batch_section()
@@ -106,7 +107,6 @@ def render_batch_section():
 
 
 def render_generate_section():
-    gr.Markdown("Generate the listicle, JSON file, and images to use here using Chat-GPT.")
     api_key, api_text_model, api_image_model = openai_components.render_openai_setup()
     with gr.Row(equal_height=False):
         with gr.Group():

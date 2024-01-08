@@ -41,3 +41,7 @@ def render_font_picker(default_font_size=55):
         font_size = gr.Number(default_font_size, label="Font Size", interactive=True)
 
     return font_family, font_style, font_color, font_opacity, font_size
+
+
+def render_tool_description(description):
+    gr.Markdown(description, elem_classes=["tool-description"])
