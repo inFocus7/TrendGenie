@@ -1,4 +1,4 @@
-TRENDGENIE_OUTPUT_DIR ?= ~/trendgenie/images
+TRENDGENIE_OUTPUT_DIR ?= ~/trendgenie
 TRENDGENIE_SERVICE_NAME ?= trendgenie
 
 .PHONY: build
@@ -10,7 +10,7 @@ build:
 .PHONY: run
 run:
 	@echo "Running TrendGenie's Docker image..."
-	docker run -d --name $(TRENDGENIE_SERVICE_NAME) -p 7860:7860 -v $(TRENDGENIE_OUTPUT_DIR):/trendgenie/images $(TRENDGENIE_SERVICE_NAME)
+	docker run -d --name $(TRENDGENIE_SERVICE_NAME) -p 7860:7860 -v $(TRENDGENIE_OUTPUT_DIR):/root/trendgenie $(TRENDGENIE_SERVICE_NAME)
 	@echo "TrendGenie is running on port 7860"
 
 .PHONY: start

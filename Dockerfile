@@ -1,7 +1,7 @@
 # Need C module to be compiled
 FROM debian:12-slim AS builder
 RUN apt-get update && apt-get install --no-install-suggests --no-install-recommends --yes \
-    python3-venv gcc libpython3-dev libjpeg-dev zlib1g-dev libfreetype6-dev fontconfig && \
+    python3-venv gcc libpython3-dev libjpeg-dev zlib1g-dev libfreetype6-dev fontconfig ffmpeg && \
     python3 -m venv /venv && \
     /venv/bin/pip install --upgrade pip setuptools wheel
 

@@ -11,7 +11,7 @@ def render_music_section():
     with gr.Tab("Process Cover Image"):
         render_process_cover()
     with gr.Tab("Create Music Video"):
-        render_music_video_creation()
+        music_video_cover_image = render_music_video_creation()
 
 
 def render_generate_cover():
@@ -56,3 +56,5 @@ def render_music_video_creation():
                               outputs=[video_output])
     save_video_button.click(video_processing.save_video_to_disk,
                             inputs=[video_output, video_name, video_suffix], outputs=[])
+
+    return cover_image
