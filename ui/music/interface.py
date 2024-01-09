@@ -91,15 +91,23 @@ def render_music_video_creation():
                                show_share_button=False, show_download_button=False, scale=2)
         audio_filepath = gr.File(label="Audio", file_types=["audio"], scale=1, height=100)
     with gr.Column():
-        # Defaulting to 1. It's a still image, but may expand by adding some effects (grain)
-        fps = gr.Number(value=1, label="FPS", minimum=1, maximum=144)
-    with gr.Column():
+        background_color, background_opacity = gru.render_color_opacity_picker(default_name_label="Background")
         with gr.Group():
             artist_name = gr.Textbox(label="Artist Name", lines=1, max_lines=1, scale=1)
             artist_ffamily, artist_fstyle, artist_fcolor, artist_fopacity, artist_fsize = gru.render_font_picker()
         with gr.Group():
             song_title = gr.Textbox(label="Song Title", lines=1, max_lines=1, scale=2)
             song_ffamily, song_fstyle, song_fcolor, song_fopacity, song_fsize = gru.render_font_picker()
+        with gr.Column():
+            # Defaulting to 1. It's a still image, but may expand by adding some effects (grain, and not sure what else)
+            fps = gr.Number(value=1, label="FPS", minimum=1, maximum=144)
+
+            with gr.Group():
+                generate_audio_visualizer_button = gr.Checkbox(value=False, label="Generate Audio Visualizer",
+                                                               interactive=True)
+                with gr.Group() as audio_visualizer_group:
+                    audio_visualizer_color, audio_visualizer_opacity = gru.render_color_opacity_picker("Audio Visualizer")
+            gru.bind_checkbox_to_visibility(generate_audio_visualizer_button, audio_visualizer_group)
 
     create_video_button = gr.Button("Create Music Video", variant="primary")
 
@@ -110,7 +118,10 @@ def render_music_video_creation():
     create_video_button.click(create_music_video, inputs=[cover_image, audio_filepath, fps,
                                                           artist_name, artist_ffamily, artist_fstyle, artist_fsize,
                                                           artist_fcolor, artist_fopacity, song_title, song_ffamily,
-                                                          song_fstyle, song_fsize, song_fcolor, song_fopacity],
+                                                          song_fstyle, song_fsize, song_fcolor, song_fopacity,
+                                                          background_color, background_opacity,
+                                                          generate_audio_visualizer_button, audio_visualizer_color,
+                                                          audio_visualizer_opacity],
                               outputs=[video_output])
     save_video_button.click(video_processing.save_video_to_disk,
                             inputs=[video_output, video_name, video_suffix], outputs=[])

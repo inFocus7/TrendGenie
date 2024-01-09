@@ -2,10 +2,10 @@ import gradio as gr
 import utils.font_manager as font_manager
 
 
-def render_color_opacity_picker():
+def render_color_opacity_picker(default_name_label="Font"):
     with gr.Group():
         with gr.Row():
-            color = gr.ColorPicker(label="Font Color", scale=1, interactive=True)
+            color = gr.ColorPicker(label=f"{default_name_label} Color", scale=1, interactive=True)
             opacity = gr.Slider(0, 100, value=100, label="Opacity", scale=2, interactive=True)
 
     return color, opacity
@@ -24,10 +24,11 @@ def render_font_picker(default_font_size=55):
     with gr.Group():
         with gr.Row():
             font_families_list = list(font_families.keys())
-            initial_font_family = font_families_list[0]
+            initial_font_family = font_families_list[0] if len(font_families_list) > 0 else ""
             font_family = gr.Dropdown(font_families_list, value=initial_font_family, label="Font Family", interactive=True)
-            font_styles_list = list(font_families[initial_font_family].keys())
-            font_style = gr.Dropdown(font_styles_list, value=font_styles_list[0], label="Font Style", interactive=True)
+            font_styles_list = list(font_families[initial_font_family].keys() if initial_font_family else [])
+            initial_font_style = font_styles_list[0] if len(font_styles_list) > 0 else ""
+            font_style = gr.Dropdown(font_styles_list, value=initial_font_style, label="Font Style", interactive=True)
 
         def update_font_styles(selected_font_family):
             if selected_font_family is None or selected_font_family == "":
