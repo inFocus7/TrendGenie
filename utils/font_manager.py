@@ -34,7 +34,6 @@ def initialize_fonts():
     trendgenie_fonts_dir = os.path.join(path_handler.get_default_path(), "fonts")
     fonts_dirs.append(trendgenie_fonts_dir)
     for fonts_dir in fonts_dirs:
-        print("Searching for fonts in (if it exists)", fonts_dir)
         fonts_dir = os.path.expanduser(fonts_dir)
         if not os.path.exists(fonts_dir):
             continue

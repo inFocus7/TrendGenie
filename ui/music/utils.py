@@ -38,7 +38,7 @@ cached_visualizer_background = None
 
 # TODO - look into why the ellipsis resizing is not ranging over ALL of x axis, but seemingly repeated.
 # TODO - allow for custom 'dot' shape/image.
-def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255, 255, 255, 255), dot_count=(80, 55),
+def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255, 255, 255, 255), dot_count=(90, 65), # the more dots, the more drawings, meaning slower.
                     alias_scale=1):
     global cached_visualizer_dot_positions, cached_visualizer_background
     width, height = canvas.size[0] * alias_scale, canvas.size[1] * alias_scale
@@ -82,27 +82,23 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
         avg_loudness = np.mean(band_loudness) if band_loudness else -80
         loudness_values[x] = avg_loudness
 
-    x_scaled_loudness = {}
+    cached_dot_sizes = {}
     for i, (pos_x, pos_y) in enumerate(cached_visualizer_dot_positions):
-        x = i % dot_count[0]
+        column = i // dot_count[1]  # Ensure the correct column is computed
 
-        # If we haven't pre-calculated the size for this x, calculate it
-        if pos_x not in x_scaled_loudness:
-            avg_loudness = loudness_values[x]
+        if column not in cached_dot_sizes:
+            avg_loudness = loudness_values[column]
 
             # Scale the loudness to the dot size
-            scaled_loudness = (avg_loudness - min_loudness) / (
-                    max_loudness - min_loudness) if max_loudness != min_loudness else 0
+            scaled_loudness = (avg_loudness - min_loudness) / (max_loudness - min_loudness) if max_loudness != min_loudness else 0
             dot_size = base_size + scaled_loudness * (max_size - base_size)
-            dot_size = min(max(dot_size, base_size),
-                           max_size) * alias_scale  # Increase the size based on the scale (for aliasing)
+            dot_size = min(max(dot_size, base_size), max_size) * alias_scale
 
-            x_scaled_loudness[pos_x] = dot_size
+            cached_dot_sizes[column] = dot_size
+        else:
+            dot_size = cached_dot_sizes[column]
 
-        dot_size = x_scaled_loudness[pos_x]
-        large_draw.ellipse([(pos_x - dot_size / 2, pos_y - dot_size / 2),
-                           (pos_x + dot_size / 2, pos_y + dot_size / 2)],
-                           fill=color, outline=color)
+        large_draw.ellipse([(pos_x - dot_size / 2, pos_y - dot_size / 2), (pos_x + dot_size / 2, pos_y + dot_size / 2)], fill=color, outline=color)
 
     canvas.paste(large_canvas.resize(canvas.size, Image.LANCZOS))
 
@@ -152,12 +148,13 @@ def create_music_video(
     if generate_audio_visualizer:
         frequency_loudness, times = analyze_audio(audio, fps)
         audio_frame_duration = 1.0 / fps
+        frame_cache = Image.new("RGBA", (width, height))
         for i, time_point in enumerate(times):
             if time_point > audio_clip.duration:
                 break
-            frame = Image.new("RGBA", (width, height))
-            # cProfile.runctx("draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity)",
-            #                 locals=locals(), globals=globals())
+            frame = frame_cache.copy()
+            cProfile.runctx("draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity)",
+                            locals=locals(), globals=globals())
             draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity)
             frame_np = np.array(frame)
             frame_clip = ImageClip(frame_np).set_duration(audio_frame_duration)
