@@ -52,8 +52,9 @@ def render_process_cover():
     with gr.Column():
         gr.Markdown("## Input")
         with gr.Group():
+            # Sadly we can't use RGBA here due to JPEG images not supporting alpha and breaking
             input_image = gr.Image(sources=["upload"], label="Cover Image", type="filepath", show_download_button=False,
-                                   scale=2, elem_classes=["single-image-input"])
+                                   scale=2, elem_classes=["single-image-input"], image_mode="RGB")
 
         with gr.Row(equal_height=False):
             with gr.Group():
@@ -87,8 +88,10 @@ def render_process_cover():
 def render_music_video_creation():
     gr.Markdown("## Input")
     with gr.Row(equal_height=False):
+        # Sadly we can't use RGBA here due to JPEG images not supporting alpha and breaking. It would be nice if Gradio
+        # supported a way to convert to PNG before processing, but it doesn't seem to.
         cover_image = gr.Image(label="Cover Image", type="filepath", sources=["upload"],
-                               show_share_button=False, show_download_button=False, scale=2)
+                               show_share_button=False, show_download_button=False, scale=2, image_mode="RGB")
         audio_filepath = gr.File(label="Audio", file_types=["audio"], scale=1, height=100)
     with gr.Column():
         background_color, background_opacity = gru.render_color_opacity_picker(default_name_label="Background")
@@ -107,6 +110,21 @@ def render_music_video_creation():
                                                                interactive=True)
                 with gr.Group() as audio_visualizer_group:
                     audio_visualizer_color, audio_visualizer_opacity = gru.render_color_opacity_picker("Audio Visualizer")
+                    with gr.Group():
+                        with gr.Row():
+                            audio_visualizer_num_rows = gr.Number(value=90, label="Number of Rows",
+                                                                  minimum=1, maximum=100)
+                            audio_visualizer_num_columns = gr.Number(value=65, label="Number of Columns",
+                                                                     minimum=1, maximum=100)
+                        with gr.Row():
+                            audio_visualizer_min_size = gr.Number(value=1, label="Minimum Size", minimum=1, maximum=100)
+                            audio_visualizer_max_size = gr.Number(value=7, label="Maximum Size", minimum=1, maximum=200)
+                    # Must be a PNG file to support transparency. The idea for this is more-so to have shapes that can
+                    # be rendered for the visualizer, and ideally they have transparent backgrounds, so using RGBA.
+                    audio_visualizer_drawing = gr.Image(label="Visualizer Drawing (png)", type="filepath",
+                                                        sources=["upload"], show_share_button=False,
+                                                        show_download_button=False, scale=2, height=150,
+                                                        image_mode="RGBA")
             gru.bind_checkbox_to_visibility(generate_audio_visualizer_button, audio_visualizer_group)
 
     create_video_button = gr.Button("Create Music Video", variant="primary")
@@ -121,7 +139,9 @@ def render_music_video_creation():
                                                           song_fstyle, song_fsize, song_fcolor, song_fopacity,
                                                           background_color, background_opacity,
                                                           generate_audio_visualizer_button, audio_visualizer_color,
-                                                          audio_visualizer_opacity],
+                                                          audio_visualizer_opacity, audio_visualizer_drawing,
+                                                          audio_visualizer_num_rows, audio_visualizer_num_columns,
+                                                          audio_visualizer_min_size, audio_visualizer_max_size],
                               outputs=[video_output])
     save_video_button.click(video_processing.save_video_to_disk,
                             inputs=[video_output, video_name, video_suffix], outputs=[])

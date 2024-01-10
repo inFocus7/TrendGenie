@@ -36,10 +36,8 @@ cached_visualizer_dot_positions = None
 cached_visualizer_background = None
 
 
-# TODO - look into why the ellipsis resizing is not ranging over ALL of x axis, but seemingly repeated.
-# TODO - allow for custom 'dot' shape/image.
 def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255, 255, 255, 255), dot_count=(90, 65), # the more dots, the more drawings, meaning slower.
-                    alias_scale=1):
+                    alias_scale=1, custom_drawing=None):
     global cached_visualizer_dot_positions, cached_visualizer_background
     width, height = canvas.size[0] * alias_scale, canvas.size[1] * alias_scale
 
@@ -48,7 +46,8 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
     large_canvas = cached_visualizer_background.copy()
     large_draw = ImageDraw.Draw(large_canvas)
 
-    if cached_visualizer_dot_positions is None:
+    # In case the dot count changes, recalculate the dot positions
+    if cached_visualizer_dot_positions is None or len(cached_visualizer_dot_positions) != dot_count[0] * dot_count[1]:
         # Calculate and store dot positions
         x_positions = (width / dot_count[0]) * np.arange(dot_count[0]) + (width / dot_count[0] / 2)
         y_positions = (height / dot_count[1]) * np.arange(dot_count[1]) + (height / dot_count[1] / 2)
@@ -88,6 +87,7 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
 
         if column not in cached_dot_sizes:
             avg_loudness = loudness_values[column]
+            # avg_loudness = loudness_values.get(column, -80) < if anything breaks, do this
 
             # Scale the loudness to the dot size
             scaled_loudness = (avg_loudness - min_loudness) / (max_loudness - min_loudness) if max_loudness != min_loudness else 0
@@ -98,7 +98,11 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
         else:
             dot_size = cached_dot_sizes[column]
 
-        large_draw.ellipse([(pos_x - dot_size / 2, pos_y - dot_size / 2), (pos_x + dot_size / 2, pos_y + dot_size / 2)], fill=color, outline=color)
+        if custom_drawing is not None:
+            custom_drawing = custom_drawing.resize((int(dot_size), int(dot_size)), Image.LANCZOS)
+            large_canvas.paste(custom_drawing, (int(pos_x - dot_size / 2), int(pos_y - dot_size / 2)), custom_drawing)
+        else:
+            large_draw.ellipse([(pos_x - dot_size / 2, pos_y - dot_size / 2), (pos_x + dot_size / 2, pos_y + dot_size / 2)], fill=color, outline=color)
 
     canvas.paste(large_canvas.resize(canvas.size, Image.LANCZOS))
 
@@ -108,7 +112,9 @@ def create_music_video(
         artist, artist_font_type, artist_font_style, artist_font_size, artist_font_color, artist_font_opacity,
         song, song_font_type, song_font_style, song_font_size, song_font_color, song_font_opacity,
         background_color=(0, 0, 0), background_opacity=66, generate_audio_visualizer=False,
-        audio_visualizer_color=(255, 255, 255), audio_visualizer_opacity=100):
+        audio_visualizer_color=(255, 255, 255), audio_visualizer_opacity=100, visualizer_drawing=None,
+        audio_visualizer_num_rows=90, audio_visualizer_num_columns=65, audio_visualizer_min_size=1,
+        audio_visualizer_max_size=7):
     if image is None:
         print("No cover image for the video.")
         return
@@ -144,6 +150,12 @@ def create_music_video(
     audio_visualizer_color_opacity = image_utils.get_rgba(audio_visualizer_color, audio_visualizer_opacity)
 
     # Add audio visualizer
+    custom_drawing = None
+    if visualizer_drawing is not None and visualizer_drawing != "":
+        custom_drawing = Image.open(visualizer_drawing)
+        if custom_drawing.mode != 'RGBA':
+            custom_drawing = custom_drawing.convert('RGBA')
+
     visualizer_clip = []
     if generate_audio_visualizer:
         frequency_loudness, times = analyze_audio(audio, fps)
@@ -153,9 +165,12 @@ def create_music_video(
             if time_point > audio_clip.duration:
                 break
             frame = frame_cache.copy()
-            cProfile.runctx("draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity)",
-                            locals=locals(), globals=globals())
-            draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity)
+            # cProfile.runctx("draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity)",
+            #                 locals=locals(), globals=globals())
+            draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity,
+                            custom_drawing=custom_drawing, base_size=audio_visualizer_min_size,
+                            max_size=audio_visualizer_max_size, dot_count=(audio_visualizer_num_rows,
+                                                                           audio_visualizer_num_columns))
             frame_np = np.array(frame)
             frame_clip = ImageClip(frame_np).set_duration(audio_frame_duration)
             # If I want to add some blending effect, i'll have to do some mask/function here and blend this frame with
