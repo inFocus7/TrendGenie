@@ -50,8 +50,8 @@ def process(image_files, json_data,
         item = json_dict[img_name]
 
         # Calculate positions for the text
-        top_center = int(img.shape[0] * 0.13)
-        bottom_center = int(img.shape[0] * 0.70)
+        top_center = (0, int(img.shape[0] * 0.13))
+        bottom_center = (0, int(img.shape[0] * 0.70))
 
         # Add association and rating at the top center, one above the other
         img, (_, association_height) = image_processing.add_text(img, item["association"], top_center, mff,
@@ -61,14 +61,16 @@ def process(image_files, json_data,
                                                                  shadow_radius=msr,
                                                                  shadow_color=image_utils.get_rgba(msc, mso),
                                                                  show_background=mbe,
-                                                                 background_color=image_utils.get_rgba(mbc, mbo))
+                                                                 background_color=image_utils.get_rgba(mbc, mbo),
+                                                                 x_center=True)
 
         img, (_, _) = image_processing.add_text(img, f'{json_data["rating_type"]}: {item["rating"]}%',
-                                                top_center + association_height + rating_offset,
+                                                (0, top_center[1] + association_height + rating_offset),
                                                 rff, font_size=rfs, font_color=image_utils.get_rgba(rfc, rfo),
                                                 show_shadow=rse, shadow_radius=rsr,
                                                 shadow_color=image_utils.get_rgba(rsc, rso),
-                                                show_background=rbe, background_color=image_utils.get_rgba(rbc, rbo))
+                                                show_background=rbe, background_color=image_utils.get_rgba(rbc, rbo),
+                                                x_center=True)
 
         # Add name and description at the bottom center, one above the other
         img, (_, name_height) = image_processing.add_text(img, item["name"], bottom_center, nff, font_size=nfs,
@@ -77,14 +79,15 @@ def process(image_files, json_data,
                                                           show_shadow=nse, shadow_radius=nsr,
                                                           shadow_color=image_utils.get_rgba(nsc, nso),
                                                           show_background=nbe,
-                                                          background_color=image_utils.get_rgba(nbc, nbo))
+                                                          background_color=image_utils.get_rgba(nbc, nbo),
+                                                          x_center=True)
         img, (_, _) = image_processing.add_text(img, f'"{item["description"]}"',
-                                                bottom_center + name_height + text_offset, dff,
+                                                (0, bottom_center[1] + name_height + text_offset), dff,
                                                 font_size=dfs, font_color=image_utils.get_rgba(dfc, dfo),
                                                 show_shadow=dse, shadow_radius=dsr,
                                                 shadow_color=image_utils.get_rgba(dsc, dso),
                                                 show_background=dbe, background_color=image_utils.get_rgba(dbc, dbo),
-                                                max_width=43)  # Adjust for wrapped text
+                                                max_width=43, x_center=True)
 
         images += [img]
 

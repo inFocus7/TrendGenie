@@ -97,10 +97,12 @@ def render_music_video_creation():
         background_color, background_opacity = gru.render_color_opacity_picker(default_name_label="Background")
         with gr.Group():
             artist_name = gr.Textbox(label="Artist Name", lines=1, max_lines=1, scale=1)
-            artist_ffamily, artist_fstyle, artist_fcolor, artist_fopacity, artist_fsize = gru.render_font_picker()
+            (artist_ffamily, artist_fstyle, artist_fsize, artist_fcolor, artist_fopacity), (ase, asc, aso, asr), (
+                abe, abc, abo) = image_processing.render_text_editor_parameters("Text Parameters")
         with gr.Group():
             song_title = gr.Textbox(label="Song Title", lines=1, max_lines=1, scale=2)
-            song_ffamily, song_fstyle, song_fcolor, song_fopacity, song_fsize = gru.render_font_picker()
+            (song_ffamily, song_fstyle, song_fsize, song_fcolor, song_fopacity), (sse, ssc, sso, ssr), (
+                sbe, sbc, sbo) = image_processing.render_text_editor_parameters("Text Parameters")
         with gr.Column():
             # Defaulting to 1. It's a still image, but may expand by adding some effects (grain, and not sure what else)
             fps = gr.Number(value=1, label="FPS", minimum=1, maximum=144)
@@ -135,8 +137,9 @@ def render_music_video_creation():
 
     create_video_button.click(create_music_video, inputs=[cover_image, audio_filepath, fps,
                                                           artist_name, artist_ffamily, artist_fstyle, artist_fsize,
-                                                          artist_fcolor, artist_fopacity, song_title, song_ffamily,
-                                                          song_fstyle, song_fsize, song_fcolor, song_fopacity,
+                                                          artist_fcolor, artist_fopacity, ase, asc, aso, asr, abe, abc,
+                                                          abo, song_title, song_ffamily, song_fstyle, song_fsize,
+                                                          song_fcolor, song_fopacity, sse, ssc, sso, ssr, sbe, sbc, sbo,
                                                           background_color, background_opacity,
                                                           generate_audio_visualizer_button, audio_visualizer_color,
                                                           audio_visualizer_opacity, audio_visualizer_drawing,

@@ -1,3 +1,4 @@
+import PIL
 from PIL import ImageFont, ImageDraw, Image, ImageFilter
 import numpy as np
 import textwrap
@@ -32,13 +33,13 @@ def render_text_editor_parameters(name):
         with gr.Column():
             font_family, font_style, font_color, font_opacity, font_size = gru.render_font_picker()
             with gr.Group():
-                drop_shadow_checkbox = gr.Checkbox(False, label="Enable Drop Shadow")
+                drop_shadow_checkbox = gr.Checkbox(False, label="Enable Drop Shadow", interactive=True)
                 with gr.Group(visible=drop_shadow_checkbox.value) as additional_options:
                     drop_shadow_color, drop_shadow_opacity = gru.render_color_opacity_picker()
                     drop_shadow_radius = gr.Number(0, label="Shadow Radius")
                     gru.bind_checkbox_to_visibility(drop_shadow_checkbox, additional_options)
             with gr.Group():
-                background_checkbox = gr.Checkbox(False, label="Enable Background")
+                background_checkbox = gr.Checkbox(False, label="Enable Background", interactive=True)
                 with gr.Group(visible=background_checkbox.value) as additional_options:
                     background_color, background_opacity = gru.render_color_opacity_picker()
                     gru.bind_checkbox_to_visibility(background_checkbox, additional_options)
@@ -155,15 +156,24 @@ def save_image_to_disk(image_path, name, image_suffix=".png", dir=default_path):
 # Function to add text to an image with custom font, size, and wrapping
 def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 255, 255), shadow_color=(255, 255, 255),
              shadow_radius=None, max_width=None, show_background=False, show_shadow=False,
-             background_color=(0, 0, 0, 255)):
-    # Convert OpenCV image to PIL image
-    image_pil = Image.fromarray(image).convert("RGBA")
+             background_color=(0, 0, 0, 255), x_center=False):
+    if not isinstance(position, tuple):
+        raise TypeError("Position must be a 2-tuple.", type(position))
+
+    # Check if the image is a NumPy array (OpenCV image)
+    if isinstance(image, np.ndarray):
+        # Convert OpenCV image (BGR) to PIL image (RGB)
+        image_pil = Image.fromarray(image).convert("RGBA")
+    elif isinstance(image, Image.Image):
+        image_pil = image.convert("RGBA")
+    else:
+        raise TypeError("Unsupported image type.", type(image))
 
     txt_layer = Image.new('RGBA', image_pil.size, (255, 255, 255, 0))
     font = ImageFont.truetype(font_path, font_size)
     draw = ImageDraw.Draw(txt_layer)
 
-    img_width, img_height = image.shape[1], image.shape[0]
+    img_width, img_height = image_pil.size
 
     if max_width:  # Prepare for text wrapping if max_width is provided
         wrapped_text = textwrap.fill(text, width=max_width)
@@ -172,6 +182,7 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
 
     lines = wrapped_text.split('\n')
 
+    x_pos, y_pos = position
     y_offset = 0
     max_line_width = 0  # Keep track of the widest line
     total_height = 0  # Accumulate total height of text block
@@ -182,8 +193,10 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
         max_line_width = max(max_line_width, line_width)
         total_height += line_height
 
-        text_x = (img_width - line_width) / 2  # Adjusted to use numpy width
-        line_y = position + y_offset
+        text_x = x_pos  # Adjusted to use numpy width
+        if x_center:
+            text_x = (img_width - line_width) / 2
+        line_y = y_pos + y_offset
         y_offset += (line_height + 6)
 
         if show_background:

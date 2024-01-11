@@ -1,6 +1,7 @@
 import math
 from PIL import Image, ImageFilter, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips
+import multiprocessing
 import utils.font_manager as font_manager
 import utils.image as image_utils
 import numpy as np
@@ -110,7 +111,11 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
 def create_music_video(
         image, audio, fps,
         artist, artist_font_type, artist_font_style, artist_font_size, artist_font_color, artist_font_opacity,
-        song, song_font_type, song_font_style, song_font_size, song_font_color, song_font_opacity,
+        artist_shadow_enabled, artist_shadow_color, artist_shadow_opacity, artist_shadow_radius,
+        artist_background_enabled, artist_background_color, artist_background_opacity,
+        song, song_font_type, song_font_style, song_font_size, song_font_color, song_font_opacity, song_shadow_enabled,
+        song_shadow_color, song_shadow_opacity, song_shadow_radius, song_background_enabled, song_background_color,
+        song_background_opacity,
         background_color=(0, 0, 0), background_opacity=66, generate_audio_visualizer=False,
         audio_visualizer_color=(255, 255, 255), audio_visualizer_opacity=100, visualizer_drawing=None,
         audio_visualizer_num_rows=90, audio_visualizer_num_columns=65, audio_visualizer_min_size=1,
@@ -177,35 +182,45 @@ def create_music_video(
             # the equivalent background frame.
             visualizer_clip.append(frame_clip)
 
-    current_clip = background_clip
-    if len(visualizer_clip) > 0:
         visualizer_clip = concatenate_videoclips(visualizer_clip, method="compose")
-        visualizer_clip.set_opacity(0.01)
-        current_clip = CompositeVideoClip([background_clip, visualizer_clip])
 
     # Place the cover on top of the background
     np_canvas = np.array(canvas)
     canvas_clip = ImageClip(np_canvas).set_duration(audio_clip.duration)
-    current_clip = CompositeVideoClip([current_clip, canvas_clip])
 
     # Add text
     font_families = font_manager.get_fonts()
     text_canvas = Image.new("RGBA", (width, height))
-    text_draw = ImageDraw.Draw(text_canvas)
 
-    artist_font = ImageFont.truetype(font_families[artist_font_type][artist_font_style], artist_font_size)
-    artist_font_fill = image_utils.get_rgba(artist_font_color, artist_font_opacity)
-    song_font = ImageFont.truetype(font_families[song_font_type][song_font_style], song_font_size)
-    song_font_fill = image_utils.get_rgba(song_font_color, song_font_opacity)
+    song_pos = (20, int(height * 0.925))
+    text_canvas, (_, song_height) = image_processing.add_text(text_canvas, song, song_pos,
+                                                    font_families[song_font_type][song_font_style],
+                                                    font_size=song_font_size,
+                                                    font_color=image_utils.get_rgba(song_font_color, song_font_opacity),
+                                                    show_shadow=song_shadow_enabled, shadow_radius=song_shadow_radius,
+                                                    shadow_color=image_utils.get_rgba(song_shadow_color,
+                                                                                      song_shadow_opacity),
+                                                    show_background=song_background_enabled,
+                                                    background_color=image_utils.get_rgba(song_background_color,
+                                                                                          song_background_opacity))
+    artist_pos = (song_pos[0], song_pos[1] - song_height - 5)
+    text_canvas, (_, artist_height) = image_processing.add_text(text_canvas, artist, artist_pos,
+                                                        font_families[artist_font_type][artist_font_style],
+                                                        font_size=artist_font_size,
+                                                        font_color=image_utils.get_rgba(artist_font_color, artist_font_opacity),
+                                                        show_shadow=artist_shadow_enabled,
+                                                        shadow_radius=artist_shadow_radius,
+                                                        shadow_color=image_utils.get_rgba(artist_shadow_color, artist_shadow_opacity),
+                                                        show_background=artist_background_enabled,
+                                                        background_color=image_utils.get_rgba(artist_background_color, artist_background_opacity))
 
-    # TODO place one on top of the other like in previous generation
-    text_draw.text((50, height - 150), artist, fill=artist_font_fill, font=artist_font)
-    text_draw.text((50, height - 100), song, fill=song_font_fill, font=song_font)
     text_np = np.array(text_canvas)
     text_clip = ImageClip(text_np).set_duration(audio_clip.duration)
-    current_clip = CompositeVideoClip([current_clip, text_clip])
 
-    current_clip = current_clip.set_audio(audio_clip)
+    if generate_audio_visualizer:
+        final_clip = CompositeVideoClip([background_clip, visualizer_clip, canvas_clip, text_clip])
+    else:
+        final_clip = CompositeVideoClip([background_clip, canvas_clip, text_clip])
 
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as temp_video_file:
         temp_video_path = temp_video_file.name
@@ -213,7 +228,19 @@ def create_music_video(
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
         temp_audio_path = temp_audio_file.name
 
-    current_clip.write_videofile(temp_video_path, codec="libx264", fps=fps, temp_audiofile=temp_audio_path)
+    final_clip = final_clip.set_audio(audio_clip)
+
+    threads = multiprocessing.cpu_count() // 2
+    final_clip.write_videofile(
+        temp_video_path,
+        codec="libx264",
+        fps=fps,
+        temp_audiofile=temp_audio_path,
+        threads=threads,
+        preset="medium",
+        verbose=False,  # add: logger=None
+        logger=None,
+        )
 
     return temp_video_path
 
