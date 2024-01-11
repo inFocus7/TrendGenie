@@ -5,3 +5,5 @@ numpy~=1.23.5
 Pillow~=8.4.0
 opencv-python-headless~=4.8.1.78
 fonttools~=4.47.0
+moviepy~=1.0.3
+librosa~=0.10.1

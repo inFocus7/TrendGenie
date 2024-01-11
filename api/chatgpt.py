@@ -81,11 +81,15 @@ def get_chat_response(client: openai.Client, api_model: str, role: str, prompt: 
     return content
 
 
-def get_image_response(client: openai.Client, api_model: str, prompt: str):
+def get_image_response(client: openai.Client, api_model: str, prompt: str, portrait=False):
+    image_size = "1024x1024"
+    if portrait and api_model == "dall-e-3":
+        image_size = "1024x1792"
+
     image_response = client.images.generate(
         prompt=prompt,
         model=api_model,
-        size="1024x1792" if api_model == "dall-e-3" else "1024x1024",
+        size=image_size,
         n=1,
         quality="hd" if api_model == "dall-e-3" else "standard",
         response_format="url",

@@ -35,6 +35,31 @@
     }
 }
 
+.video-output {
+    .icon-buttons {
+        display: none;
+    }
+}
+
+.single-image-input {
+    img {
+        max-height: 300px;
+    }
+}
+
+.single-image-output {
+    img {
+        max-height: 500px;
+    }
+}
+
+.tool-description {
+    font-size: 1rem;
+    font-weight: 300;
+    font-style: italic;
+    opacity: 0.6;
+}
+
 #footer {
     display: flex;
     flex-direction: column;

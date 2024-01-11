@@ -4,7 +4,7 @@ def get_rgba(color, opacity):
     alpha = int(opacity * 255 / 100)
 
     # if color is hex, convert to rgb
-    if color.startswith("#"):
+    if not isinstance(color, tuple) and color.startswith("#"):
         color = color.lstrip("#")
         color = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
 
