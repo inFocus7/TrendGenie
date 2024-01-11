@@ -11,7 +11,8 @@ def render_music_section():
     with gr.Tab("Generate Cover"):
         send_cover_to_process_button, send_cover_to_video_button, generated_image_output_path = render_generate_cover()
     with gr.Tab("Add Text To Image"):
-        send_processed_cover_to_video_button, processed_image_input, processed_image_output_path = render_process_cover()
+        send_processed_cover_to_video_button, processed_image_input, processed_image_output_path = \
+            render_process_cover()
     with gr.Tab("Create Music Video"):
         music_video_cover_image = render_music_video_creation()
 
@@ -111,7 +112,8 @@ def render_music_video_creation():
                 generate_audio_visualizer_button = gr.Checkbox(value=False, label="Generate Audio Visualizer",
                                                                interactive=True)
                 with gr.Group() as audio_visualizer_group:
-                    audio_visualizer_color, audio_visualizer_opacity = gru.render_color_opacity_picker("Audio Visualizer")
+                    audio_visualizer_color, audio_visualizer_opacity = \
+                        gru.render_color_opacity_picker("Audio Visualizer")
                     with gr.Group():
                         with gr.Row():
                             audio_visualizer_num_rows = gr.Number(value=90, label="Number of Rows",

@@ -188,7 +188,8 @@ def generate_listicle(api_key, api_text_model, api_image_model, number_of_items,
         if association is not None and association != "":  # Add association field if provided
             json_format += ", association: <string>"
         json_format += "}"
-        message = f"Format the listicle into JSON. For the items, store as a list named 'items' with the content format: {json_format}."
+        message = (f"Format the listicle into JSON. For the items, store as a list named 'items' with the content "
+                   f"format: {json_format}.")
         if rating_type is not None and rating_type != "":
             message += (f"Include a top-level field `rating_type: <string>` with what the rating "
                         f"represents.")

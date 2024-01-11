@@ -25,7 +25,8 @@ def render_font_picker(default_font_size=55):
         with gr.Row():
             font_families_list = list(font_families.keys())
             initial_font_family = font_families_list[0] if len(font_families_list) > 0 else ""
-            font_family = gr.Dropdown(font_families_list, value=initial_font_family, label="Font Family", interactive=True)
+            font_family = gr.Dropdown(font_families_list, value=initial_font_family, label="Font Family",
+                                      interactive=True)
             font_styles_list = list(font_families[initial_font_family].keys() if initial_font_family else [])
             initial_font_style = font_styles_list[0] if len(font_styles_list) > 0 else ""
             font_style = gr.Dropdown(font_styles_list, value=initial_font_style, label="Font Style", interactive=True)

@@ -37,7 +37,7 @@ cached_visualizer_dot_positions = None
 cached_visualizer_background = None
 
 
-def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255, 255, 255, 255), dot_count=(90, 65), # the more dots, the more drawings, meaning slower.
+def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255, 255, 255, 255), dot_count=(90, 65),
                     alias_scale=1, custom_drawing=None):
     global cached_visualizer_dot_positions, cached_visualizer_background
     width, height = canvas.size[0] * alias_scale, canvas.size[1] * alias_scale
@@ -91,7 +91,8 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
             # avg_loudness = loudness_values.get(column, -80) < if anything breaks, do this
 
             # Scale the loudness to the dot size
-            scaled_loudness = (avg_loudness - min_loudness) / (max_loudness - min_loudness) if max_loudness != min_loudness else 0
+            scaled_loudness = (avg_loudness - min_loudness) / (max_loudness - min_loudness) \
+                if max_loudness != min_loudness else 0
             dot_size = base_size + scaled_loudness * (max_size - base_size)
             dot_size = min(max(dot_size, base_size), max_size) * alias_scale
 
@@ -101,9 +102,13 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
 
         if custom_drawing is not None:
             custom_drawing = custom_drawing.resize((int(dot_size), int(dot_size)), Image.LANCZOS)
-            large_canvas.paste(custom_drawing, (int(pos_x - dot_size / 2), int(pos_y - dot_size / 2)), custom_drawing)
+            large_canvas.paste(custom_drawing,
+                               (int(pos_x - dot_size / 2), int(pos_y - dot_size / 2)),
+                               custom_drawing)
         else:
-            large_draw.ellipse([(pos_x - dot_size / 2, pos_y - dot_size / 2), (pos_x + dot_size / 2, pos_y + dot_size / 2)], fill=color, outline=color)
+            large_draw.ellipse([
+                (pos_x - dot_size / 2, pos_y - dot_size / 2), (pos_x + dot_size / 2, pos_y + dot_size / 2)
+            ], fill=color, outline=color)
 
     canvas.paste(large_canvas.resize(canvas.size, Image.LANCZOS))
 
@@ -194,25 +199,34 @@ def create_music_video(
 
     song_pos = (20, int(height * 0.925))
     text_canvas, (_, song_height) = image_processing.add_text(text_canvas, song, song_pos,
-                                                    font_families[song_font_type][song_font_style],
-                                                    font_size=song_font_size,
-                                                    font_color=image_utils.get_rgba(song_font_color, song_font_opacity),
-                                                    show_shadow=song_shadow_enabled, shadow_radius=song_shadow_radius,
-                                                    shadow_color=image_utils.get_rgba(song_shadow_color,
-                                                                                      song_shadow_opacity),
-                                                    show_background=song_background_enabled,
-                                                    background_color=image_utils.get_rgba(song_background_color,
-                                                                                          song_background_opacity))
+                                                              font_families[song_font_type][song_font_style],
+                                                              font_size=song_font_size,
+                                                              font_color=image_utils.get_rgba(song_font_color,
+                                                                                              song_font_opacity),
+                                                              show_shadow=song_shadow_enabled,
+                                                              shadow_radius=song_shadow_radius,
+                                                              shadow_color=image_utils.get_rgba(song_shadow_color,
+                                                                                                song_shadow_opacity),
+                                                              show_background=song_background_enabled,
+                                                              background_color=image_utils.get_rgba(
+                                                                  song_background_color,
+                                                                  song_background_opacity))
     artist_pos = (song_pos[0], song_pos[1] - song_height - 5)
     text_canvas, (_, artist_height) = image_processing.add_text(text_canvas, artist, artist_pos,
-                                                        font_families[artist_font_type][artist_font_style],
-                                                        font_size=artist_font_size,
-                                                        font_color=image_utils.get_rgba(artist_font_color, artist_font_opacity),
-                                                        show_shadow=artist_shadow_enabled,
-                                                        shadow_radius=artist_shadow_radius,
-                                                        shadow_color=image_utils.get_rgba(artist_shadow_color, artist_shadow_opacity),
-                                                        show_background=artist_background_enabled,
-                                                        background_color=image_utils.get_rgba(artist_background_color, artist_background_opacity))
+                                                                font_families[artist_font_type][artist_font_style],
+                                                                font_size=artist_font_size,
+                                                                font_color=image_utils.get_rgba(artist_font_color,
+                                                                                                artist_font_opacity),
+                                                                show_shadow=artist_shadow_enabled,
+                                                                shadow_radius=artist_shadow_radius,
+                                                                shadow_color=image_utils.get_rgba(artist_shadow_color,
+                                                                                                  artist_shadow_opacity
+                                                                                                  ),
+                                                                show_background=artist_background_enabled,
+                                                                background_color=image_utils.get_rgba(
+                                                                    artist_background_color,
+                                                                    artist_background_opacity)
+                                                                )
 
     text_np = np.array(text_canvas)
     text_clip = ImageClip(text_np).set_duration(audio_clip.duration)
@@ -240,7 +254,7 @@ def create_music_video(
         preset="medium",
         verbose=False,  # add: logger=None
         logger=None,
-        )
+    )
 
     return temp_video_path
 

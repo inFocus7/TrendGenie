@@ -1,5 +1,8 @@
-import gradio as gr
+"""
+This file contains the main UI code that runs the TrendGenie web app.
+"""
 import os
+import gradio as gr
 import ui.listicles.interface as listicle_interface
 import ui.music.interface as music_interface
 
