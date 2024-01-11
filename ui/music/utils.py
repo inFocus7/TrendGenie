@@ -268,8 +268,8 @@ def process(image_path, artist, song,
     img = image_processing.read_image_from_disk(image_path)
 
     # Calculate positions for the text
-    top_center = int(img.shape[0] * 0.13)
-    bottom_center = int(img.shape[0] * 0.70)
+    top_center = (0, int(img.shape[0] * 0.13))
+    bottom_center = (0, int(img.shape[0] * 0.87))
 
     img, (_, _) = image_processing.add_text(img, artist, top_center, aff,
                                             font_size=afs,
@@ -278,7 +278,8 @@ def process(image_path, artist, song,
                                             shadow_radius=asr,
                                             shadow_color=image_utils.get_rgba(asc, aso),
                                             show_background=abe,
-                                            background_color=image_utils.get_rgba(abc, abo))
+                                            background_color=image_utils.get_rgba(abc, abo),
+                                            x_center=True)
 
     img, (_, _) = image_processing.add_text(img, song, bottom_center, sff, font_size=sfs,
                                             font_color=image_utils.get_rgba(sfc, sfo),
@@ -286,6 +287,7 @@ def process(image_path, artist, song,
                                             show_shadow=sse, shadow_radius=ssr,
                                             shadow_color=image_utils.get_rgba(ssc, sso),
                                             show_background=sbe,
-                                            background_color=image_utils.get_rgba(sbc, sbo))
+                                            background_color=image_utils.get_rgba(sbc, sbo),
+                                            x_center=True)
 
     return img
