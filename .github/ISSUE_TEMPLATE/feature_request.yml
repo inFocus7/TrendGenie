@@ -1,0 +1,75 @@
+name: Feature / Enhancement Request
+description: Suggest a new feature or an enhancement to an existing feature
+title: "[Feature/Enhancement]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: "## Feature / Enhancement Request\nPlease fill out the information below to help us understand your proposal."
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature are you requesting?
+      options:
+        - New Feature
+        - Enhancement
+    validations:
+      required: true
+  - type: checkboxes
+    id: enhancement-area
+    attributes:
+      label: Enhancement Area
+      description: If an enhancement request, What area(s) of the project does this enhancement affect?
+      options:
+        - label: Listicles
+        - label: Music Cover Video
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Feature Description
+      description: Describe the feature you are proposing and specify if it's related to a specific tool.
+      placeholder: "Describe the feature and its relation to any tools if applicable..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this feature important? What are the benefits of implementing it?
+      placeholder: "Explain why this feature is important and its benefits..."
+    validations:
+      required: true
+  - type: textarea
+    id: possible-implementation
+    attributes:
+      label: Possible Implementation
+      description: If you have ideas about how the feature could be implemented, list them here.
+      placeholder: "Describe any technical details, data structures, APIs, or other insights for implementation..."
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: Alternatives Considered
+      description: Are there any alternative solutions or features you've considered?
+      placeholder: "Describe any alternatives and why they were not suitable..."
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Provide any additional information or context about the feature request.
+      placeholder: "Include user stories, mockups, etc., to help understand the request..."
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria (Definition of Done)
+      description: List the criteria for determining if the feature has been implemented successfully.
+      placeholder: "Define the success criteria for this feature..."
+    validations:
+      required: true

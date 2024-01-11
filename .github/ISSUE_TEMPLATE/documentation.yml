@@ -1,0 +1,51 @@
+name: Documentation Request
+description: Suggest new documentation or updates to existing documentation
+title: "[Documentation]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: "## Documentation Request\nPlease fill out the information below to help us improve our documentation."
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Documentation Request or Update
+      description: Are you requesting new documentation or an update to existing documentation?
+      options:
+        - New Documentation
+        - Update Existing Documentation
+      multiple: false
+    validations:
+      required: true
+  - type: textarea
+    id: request-details
+    attributes:
+      label: Suggested Content (or Fixes)
+      description: What should the documentation include or what needs to be fixed? Provide details or an outline.
+      placeholder: "Describe your suggestions or the necessary fixes..."
+    validations:
+      required: true
+  - type: input
+    id: relevant-documentation
+    attributes:
+      label: Relevant Documentation
+      description: Provide a link to the existing documentation or specify the section that needs updating.
+      placeholder: "http://..."
+    validations:
+      required: false
+  - type: textarea
+    id: why-important
+    attributes:
+      label: Why is this important?
+      description: Explain why this documentation change is important. How does it benefit users or contributors?
+      placeholder: "Explain the importance of this documentation change..."
+    validations:
+      required: true
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional Information
+      description: Include any additional information, like similar documentation in other projects, screenshots, or references.
+      placeholder: "Any additional context or references..."
+    validations:
+      required: false
