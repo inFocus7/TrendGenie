@@ -1,8 +1,16 @@
+"""
+This module contains utility functions for rendering widely-used Gradio components.
+"""
 import gradio as gr
-import utils.font_manager as font_manager
+from utils import font_manager
 
 
-def render_color_opacity_picker(default_name_label="Font"):
+def render_color_opacity_picker(default_name_label: str = "Font") -> tuple[gr.ColorPicker, gr.Slider]:
+    """
+    Renders a color picker with the appropriate styling.
+    :param default_name_label: The default name label to use.
+    :return: A tuple containing the color and opacity components.
+    """
     with gr.Group():
         with gr.Row():
             color = gr.ColorPicker(label=f"{default_name_label} Color", scale=1, interactive=True)
@@ -11,7 +19,13 @@ def render_color_opacity_picker(default_name_label="Font"):
     return color, opacity
 
 
-def bind_checkbox_to_visibility(checkbox, group):
+def bind_checkbox_to_visibility(checkbox: gr.Checkbox, group: gr.Group):
+    """
+    Binds a checkbox to the visibility of a group. When the checkbox is checked, the group is visible, and when the
+    checkbox is unchecked, the group is hidden.
+    :param checkbox: The Checkbox component to bind.
+    :param group: The Group component to bind.
+    """
     checkbox.change(
         lambda state: gr.Group(visible=state),
         inputs=checkbox,
@@ -19,7 +33,13 @@ def bind_checkbox_to_visibility(checkbox, group):
     )
 
 
-def render_font_picker(default_font_size=55):
+def render_font_picker(default_font_size: int = 55) \
+        -> tuple[gr.Dropdown, gr.Dropdown, gr.ColorPicker, gr.Slider, gr.Number]:
+    """
+    Renders a font picker with the appropriate styling.
+    :param default_font_size: The default font size to use.
+    :return: A tuple containing the font family, font style, font color, font opacity, and font size components.
+    """
     font_families = font_manager.get_fonts()
     with gr.Group():
         with gr.Row():
@@ -45,5 +65,9 @@ def render_font_picker(default_font_size=55):
     return font_family, font_style, font_color, font_opacity, font_size
 
 
-def render_tool_description(description):
+def render_tool_description(description: str):
+    """
+    Renders a description for a tool with the appropriate styling.
+    :param description: The description to render.
+    """
     gr.Markdown(description, elem_classes=["tool-description"])

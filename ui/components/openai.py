@@ -1,7 +1,17 @@
+"""
+This module contains ui components for the OpenAI API.
+"""
 import gradio as gr
 
 
-def render_openai_setup(show_text_model=True, show_image_model=True):
+def render_openai_setup(show_text_model: bool = True, show_image_model: bool = True) \
+        -> (gr.Textbox, gr.Dropdown, gr.Dropdown):
+    """
+    Renders the OpenAI API setup components.
+    :param show_text_model: Whether to show the text model dropdown.
+    :param show_image_model: Whether to show the image model dropdown.
+    :return: A tuple containing the API key, text model, and image model components.
+    """
     api_text_model = None
     api_image_model = None
     with gr.Row():

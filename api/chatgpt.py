@@ -125,9 +125,9 @@ def get_image_response(client: openai.Client, api_model: str, prompt: str, portr
     """
     Generates an image response using the OpenAI API based on a given prompt and specified parameters.
 
-    This function requests the OpenAI API to generate an image based on the provided text prompt. It allows specification
-    of the model to use and whether the generated image should be in a portrait format. For 'dall-e-3' model,
-    it supports high-definition (HD) quality image generation.
+    This function requests the OpenAI API to generate an image based on the provided text prompt. It allows
+    specification of the model to use and whether the generated image should be in a portrait format. For 'dall-e-3'
+    model, it supports high-definition (HD) quality image generation.
 
     :param client: The OpenAI client to use for making the API call.
     :param api_model: The model to use for image generation (e.g., 'dall-e-3').
