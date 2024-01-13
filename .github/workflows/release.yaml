@@ -4,6 +4,9 @@ on:
   release:
     types: [published]
 
+env:
+  DOCKER_BUILDKIT: 0
+
 jobs:
   publish_docker_image:
     timeout-minutes: 30
@@ -20,11 +23,11 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push image (amd64)
         run:
-            docker build -t infocus7/trendgenie:latest-amd64 --file ./amd64.Dockerfile .
+            docker build -t infocus7/trendgenie:latest-amd64 --cache-from type=registry,ref=infocus7/trendgenie:cache-amd64 --cache-to type=inline,mode=max --file ./amd64.Dockerfile .
             docker push infocus7/trendgenie:latest-amd64
       - name: Build and push image (arm64)
         run:
-            docker build -t infocus7/trendgenie:latest-arm64 --file ./arm64.Dockerfile .
+            docker build -t infocus7/trendgenie:latest-arm64 --cache-from type=registry,ref=infocus7/trendgenie:cache-arm64 --cache-to type=inline,mode=max --file ./Dockerfile .
             docker push infocus7/trendgenie:latest-arm64
       - name: Create and push manifest
         run: |
