@@ -14,22 +14,39 @@ RUN /venv/bin/pip install --disable-pip-version-check -r requirements.txt
 FROM gcr.io/distroless/python3-debian12
 # Copy over dependencies needed needed for Pillow to work.
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libjpeg.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libz.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libfreetype.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libz.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libpng16.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libbrotlidec.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libbrotlicommon.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libm.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libfontconfig.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libsndfile.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libFLAC.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libvorbis.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libvorbisenc.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libopus.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libogg.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libmpg123.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libmp3lame.so* /usr/lib/x86_64-linux-gnu/
+RUN true
 
 COPY . /app
 ENV PYTHONPATH=/venv/lib/python3.11/site-packages
