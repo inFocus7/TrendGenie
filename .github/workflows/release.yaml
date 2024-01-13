@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push image (amd64)
-        run:
+        run: |
             docker build -f ./amd64.Dockerfile -t infocus7/trendgenie:latest-amd64 .
             docker push infocus7/trendgenie:latest-amd64
       - name: Build and push image (arm64)
