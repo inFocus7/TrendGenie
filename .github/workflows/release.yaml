@@ -29,6 +29,8 @@ jobs:
           context: .
           file: ./amd64.Dockerfile
           push: true
+          cache-from: type=registry,ref=infocus7/trendgenie:cache-amd64
+          cache-to: type=inline,mode=max
           platforms: linux/amd64
           tags: infocus7/trendgenie:latest,infocus7/trendgenie:${{ github.event.release.tag_name }}
       - name: Build and push (arm64)
@@ -37,5 +39,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          cache-from: type=registry,ref=infocus7/trendgenie:cache-arm64
+          cache-to: type=inline,mode=max
           platforms: linux/arm64
           tags: infocus7/trendgenie:latest,infocus7/trendgenie:${{ github.event.release.tag_name }}
