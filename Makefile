@@ -5,7 +5,7 @@ TEARDOWN_PREVIOUS_CONTAINER ?= true
 .PHONY: build
 build:
 	@echo "Building TrendGenie's Docker image..."
-	docker build -t $(TRENDGENIE_SERVICE_NAME) .
+	docker build --no-cache -t $(TRENDGENIE_SERVICE_NAME) .
 	@echo "TrendGenie's Docker image built successfully"
 
 .PHONY: run
