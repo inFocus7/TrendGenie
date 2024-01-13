@@ -23,6 +23,6 @@ jobs:
           context: .
           file: ./amd64.Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
-            infocus7/trendgenie:latest
-            infocus7/trendgenie:${{ github.event.release.tag_name }}
+            infocus7/trendgenie:latest,infocus7/trendgenie:${{ github.event.release.tag_name }}
