@@ -30,7 +30,7 @@ jobs:
           file: ./amd64.Dockerfile
           push: true
           platforms: linux/amd64
-          tags: infocus7/trendgenie:latest-amd64
+          tags: infocus7/trendgenie:latest,infocus7/trendgenie:${{ github.event.release.tag_name }}
       - name: Build and push (arm64)
         uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0
         with:
@@ -38,11 +38,4 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/arm64
-          tags: infocus7/trendgenie:latest-arm64
-      - name: Create and push multi-architecture manifest
-        run: |
-            docker manifest create infocus7/trendgenie:latest infocus7/trendgenie:latest-amd64 infocus7/trendgenie:latest-arm64
-            docker manifest push infocus7/trendgenie:latest
-          
-            docker manifest create infocus7/trendgenie:${{ github.event.release.tag_name }} infocus7/trendgenie:latest-amd64 infocus7/trendgenie:latest-arm64
-            docker manifest push infocus7/trendgenie:${{ github.event.release.tag_name }}
+          tags: infocus7/trendgenie:latest,infocus7/trendgenie:${{ github.event.release.tag_name }}
