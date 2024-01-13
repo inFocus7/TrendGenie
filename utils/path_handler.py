@@ -4,17 +4,17 @@ This module contains functions for handling paths.
 import os
 from pathlib import Path
 
-default_path = None
+DEFAULT_PATH = None
 
 
 def get_default_path() -> str:
     """
     Gets the default path for saving files, which is the user's home directory under a folder called "trendgenie".
-    :return:
+    :return: The default path.
     """
-    global default_path
-    if default_path is None:
+    global DEFAULT_PATH
+    if DEFAULT_PATH is None:
         homepath = Path.home()
-        default_path = os.path.join(homepath, "trendgenie")
+        DEFAULT_PATH = os.path.join(homepath, "trendgenie")
 
-    return default_path
+    return DEFAULT_PATH

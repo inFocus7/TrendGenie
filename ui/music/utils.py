@@ -1,26 +1,36 @@
+"""
+This file contains the functions and utilities used to generate the music video and cover image.
+"""
 import math
-from PIL import Image, ImageFilter, ImageDraw, ImageFont
+from typing import Dict, List, Optional
+from PIL import Image, ImageFilter, ImageDraw
 from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips
 import multiprocessing
-import utils.font_manager as font_manager
-import utils.image as image_utils
+from utils import font_manager, image as image_utils
 import numpy as np
 import tempfile
-import api.chatgpt as chatgpt_api
-import processing.image as image_processing
+from api import chatgpt as chatgpt_api
+from processing import image as image_processing
 import librosa
-import cProfile
 
 
-def analyze_audio(audio, target_fps):
-    y, sr = librosa.load(audio, sr=None)
+def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]], np.ndarray):
+    """
+    Analyzes the audio file at the given path and returns the frequency loudness and times relating to the frequency
+    loudness.
+    :param audio_path: The path to the audio file to analyze.
+    :param target_fps: The target frames per second for the audio visualizer. This is used to downsample the audio so
+      that it aligns with the video.
+    :return: A tuple containing the frequency loudness and times relating to the frequency loudness.
+    """
+    y, sr = librosa.load(audio_path, sr=None)
     D = librosa.stft(y)
     D_db = librosa.amplitude_to_db(np.abs(D), ref=np.max)
 
     frequencies = librosa.fft_frequencies(sr=sr)
     times = librosa.frames_to_time(np.arange(D_db.shape[1]), sr=sr)
 
-    audio_clip = AudioFileClip(audio)
+    audio_clip = AudioFileClip(audio_path)
     audio_frames_per_video_frame = len(times) / (target_fps * audio_clip.duration)
 
     sample_indices = np.arange(0, len(times), audio_frames_per_video_frame)
@@ -33,27 +43,43 @@ def analyze_audio(audio, target_fps):
     return downsampled_frequency_loudness, downsampled_times
 
 
-cached_visualizer_dot_positions = None
-cached_visualizer_background = None
+CACHED_VISUALIZER_DOT_POSITIONS = None
+CACHED_VISUALIZER_BACKGROUND = None
 
 
-def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255, 255, 255, 255), dot_count=(90, 65),
-                    alias_scale=1, custom_drawing=None):
-    global cached_visualizer_dot_positions, cached_visualizer_background
+def draw_visualizer(canvas: Image, frequency_data: Dict[float, float], base_size: int = 1, max_size: int = 7,
+                    color: tuple[int, int, int, int] = (255, 255, 255, 255), dot_count: tuple[int, int] = (90, 65),
+                    alias_scale: int = 1, custom_drawing: Optional[Image] = None) -> None:
+    """
+    Draws a visualizer on the given canvas frame using the frequency data.
+    :param canvas: The canvas to draw the visualizer on.
+    :param frequency_data: The frequency data to use for drawing the visualizer.
+    :param base_size: The base size of the dots (silent).
+    :param max_size: The maximum size of the dots (loudest portion).
+    :param color: The color of the dots.
+    :param dot_count: The number of dots to use in the visualizer. The first value is the number of rows, and the second
+        value is the number of columns.
+    :param alias_scale: The alias scale to use for the visualizer. This is used to increase the resolution of the
+        visualizer.
+    :param custom_drawing: The custom drawing to use for the visualizer. This is used to replace the dots with a custom
+        image.
+    :return:
+    """
+    global CACHED_VISUALIZER_DOT_POSITIONS, CACHED_VISUALIZER_BACKGROUND
     width, height = canvas.size[0] * alias_scale, canvas.size[1] * alias_scale
 
-    if cached_visualizer_background is None:
-        cached_visualizer_background = Image.new("RGBA", (width, height))
-    large_canvas = cached_visualizer_background.copy()
+    if CACHED_VISUALIZER_BACKGROUND is None:
+        CACHED_VISUALIZER_BACKGROUND = Image.new("RGBA", (width, height))
+    large_canvas = CACHED_VISUALIZER_BACKGROUND.copy()
     large_draw = ImageDraw.Draw(large_canvas)
 
     # In case the dot count changes, recalculate the dot positions
-    if cached_visualizer_dot_positions is None or len(cached_visualizer_dot_positions) != dot_count[0] * dot_count[1]:
+    if CACHED_VISUALIZER_DOT_POSITIONS is None or len(CACHED_VISUALIZER_DOT_POSITIONS) != dot_count[0] * dot_count[1]:
         # Calculate and store dot positions
         x_positions = (width / dot_count[0]) * np.arange(dot_count[0]) + (width / dot_count[0] / 2)
         y_positions = (height / dot_count[1]) * np.arange(dot_count[1]) + (height / dot_count[1] / 2)
         grid_x, grid_y = np.meshgrid(x_positions, y_positions)
-        cached_visualizer_dot_positions = [(grid_x[y, x], grid_y[y, x]) for x in range(dot_count[0]) for y in
+        CACHED_VISUALIZER_DOT_POSITIONS = [(grid_x[y, x], grid_y[y, x]) for x in range(dot_count[0]) for y in
                                            range(dot_count[1])]
 
     # Precompute log frequencies
@@ -83,7 +109,7 @@ def draw_visualizer(canvas, frequency_data, base_size=1, max_size=7, color=(255,
         loudness_values[x] = avg_loudness
 
     cached_dot_sizes = {}
-    for i, (pos_x, pos_y) in enumerate(cached_visualizer_dot_positions):
+    for i, (pos_x, pos_y) in enumerate(CACHED_VISUALIZER_DOT_POSITIONS):
         column = i // dot_count[1]  # Ensure the correct column is computed
 
         if column not in cached_dot_sizes:
@@ -175,8 +201,6 @@ def create_music_video(
             if time_point > audio_clip.duration:
                 break
             frame = frame_cache.copy()
-            # cProfile.runctx("draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity)",
-            #                 locals=locals(), globals=globals())
             draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity,
                             custom_drawing=custom_drawing, base_size=audio_visualizer_min_size,
                             max_size=audio_visualizer_max_size, dot_count=(audio_visualizer_num_rows,
@@ -252,14 +276,21 @@ def create_music_video(
         temp_audiofile=temp_audio_path,
         threads=threads,
         preset="medium",
-        verbose=False,  # add: logger=None
+        verbose=False,
         logger=None,
     )
 
     return temp_video_path
 
 
-def generate_cover_image(api_key, api_model, prompt):
+def generate_cover_image(api_key: str, api_model: str, prompt: str) -> Optional[str]:
+    """
+    Generates a cover image using the OpenAI API based on a given prompt and specified parameters.
+    :param api_key: The API key to use for the OpenAI API.
+    :param api_model: The model to use for image generation (e.g., 'dall-e-3').
+    :param prompt: The text prompt based on which the image is generated.
+    :return: The URL of the generated image, or None if no image was generated or if there was an error.
+    """
     client = chatgpt_api.get_openai_client(api_key)
     image_url = chatgpt_api.get_image_response(client, api_model, prompt, portrait=False)
     if image_url is None or image_url == "":

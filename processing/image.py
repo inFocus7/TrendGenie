@@ -1,22 +1,22 @@
 """
 Module for handling image-related operations in a Gradio interface.
 """
-import PIL
-from PIL import ImageFont, ImageDraw, Image, ImageFilter
-import numpy as np
 import textwrap
-import gradio as gr
 import uuid
 from datetime import datetime
 import os
-import cv2
 from pathlib import Path
+from typing import Tuple, Optional, Union, Any, Literal
+import PIL
+from PIL import ImageFont, ImageDraw, Image, ImageFilter
+import numpy as np
+import gradio as gr
+import cv2
 from utils import path_handler
 import utils.gradio as gru
-from typing import Tuple, Optional, Union, Any, Literal
 
-image_folder = "images"
-default_path = os.path.join(path_handler.get_default_path(), image_folder)
+IMAGE_FOLDER = "images"
+default_path = os.path.join(path_handler.get_default_path(), IMAGE_FOLDER)
 
 
 def render_image_output() -> (gr.Image, gr.Textbox, gr.Dropdown, gr.Button):
@@ -104,17 +104,17 @@ def add_background(image_pil: PIL.Image, draw: PIL.ImageDraw, position: Tuple[in
     bbox = draw.textbbox((0, 0), text, font=font)
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
-    x1 = position[0] - padding[0]  # left
-    y1 = position[1] - padding[1]  # top
-    x2 = x1 + text_width + 2 * padding[0]  # right
-    y2 = y1 + text_height + 2 * padding[1]  # bottom
+    left = position[0] - padding[0]
+    top = position[1] - padding[1]  # top
+    right = left + text_width + 2 * padding[0]
+    bottom = top + text_height + 2 * padding[1]
 
     rect_img = Image.new('RGBA', image_pil.size, (0, 0, 0, 0))
     rect_draw = ImageDraw.Draw(rect_img)
-    rect_draw.rounded_rectangle([x1, y1, x2, y2], fill=fill_color, radius=border_radius)
+    rect_draw.rounded_rectangle([left, top, right, bottom], fill=fill_color, radius=border_radius)
     image_pil.paste(rect_img, (0, 0), rect_img)
 
-    return (x1 + padding[0], y1 + padding[1]), (x2 - x1, y2 - y1)
+    return (left + padding[0], top + padding[1]), (right - left, bottom - top)
 
 
 def add_blurred_shadow(image_pil: PIL.Image, text: str, position: Tuple[int, int], font: PIL.ImageFont,
@@ -172,7 +172,7 @@ def save_images_to_disk(images: gr.data_classes.GradioRootModel, image_type: Lit
     """
     if not images or len(images.root) == 0:
         gr.Warning("No images to save.")
-        return
+        return None
 
     base_dir = Path(save_dir) if Path(save_dir).is_absolute() else Path("/").joinpath(save_dir)
 
@@ -279,7 +279,7 @@ def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[i
     font = ImageFont.truetype(font_path, font_size)
     draw = ImageDraw.Draw(txt_layer)
 
-    img_width, img_height = image_pil.size
+    img_width, _ = image_pil.size
 
     if max_width:  # Prepare for text wrapping if max_width is provided
         wrapped_text = textwrap.fill(text, width=max_width)
@@ -292,7 +292,7 @@ def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[i
     y_offset = 0
     max_line_width = 0  # Keep track of the widest line
     total_height = 0  # Accumulate total height of text block
-    for i, line in enumerate(lines):
+    for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
         line_width = bbox[2] - bbox[0]
         line_height = bbox[3] - bbox[1]

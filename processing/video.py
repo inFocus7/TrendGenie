@@ -5,13 +5,13 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 import os
+from typing import Optional, Literal
 import gradio as gr
 from moviepy.editor import VideoFileClip
 from utils import path_handler
-from typing import Optional, Literal
 
-video_folder = "videos"
-default_path = os.path.join(path_handler.get_default_path(), video_folder)
+VIDEO_FOLDER = "videos"
+default_path = os.path.join(path_handler.get_default_path(), VIDEO_FOLDER)
 
 
 def render_video_output() -> (gr.Video, gr.Textbox, gr.Dropdown, gr.Button):

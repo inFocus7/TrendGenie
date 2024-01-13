@@ -1,11 +1,11 @@
 """
 This module provides utility functions for interacting with the OpenAI API and Gradio interfaces.
 """
+import os
+from typing import Optional
 import openai
 from openai import OpenAI
-import os
 import gradio as gr
-from typing import Optional
 
 
 def url_to_gradio_image_name(url: str) -> str:

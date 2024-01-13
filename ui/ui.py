@@ -8,7 +8,7 @@ import ui.music.interface as music_interface
 
 # Read the styles.css file and add it to the page.
 css_file = os.path.join(os.path.dirname(__file__), "styles.css")
-with open(css_file, "r") as file:
+with open(css_file, "r", encoding="utf-8") as file:
     css = file.read()
 
 with gr.Blocks(theme=gr.themes.Soft(), css=css) as WebApp:

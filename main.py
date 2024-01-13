@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+"""
+This is the main file for the web app. It launches the web app and initializes the font manager and inflect engine.
+"""
+# !/usr/bin/env python3
 # -*- coding: utf-8 -*
 
 from ui import ui

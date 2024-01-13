@@ -1,12 +1,19 @@
+"""
+Tbe interface for the music section of the UI. This is the main piece where we define the Gradio interface components.
+"""
 import gradio as gr
 import utils.gradio as gru
-from ui.music.utils import *
+from ui.music.utils import generate_cover_image, process, create_music_video
 import processing.video as video_processing
 import processing.image as image_processing
 import ui.components.openai as openai_components
 
 
-def render_music_section():
+def render_music_section() -> None:
+    """
+    Renders the music cover video section of the UI.
+    :return: None
+    """
     gru.render_tool_description("Create a cover and a simple video for your music!")
     with gr.Tab("Generate Cover"):
         send_cover_to_process_button, send_cover_to_video_button, generated_image_output_path = render_generate_cover()
@@ -27,7 +34,13 @@ def render_music_section():
                                      outputs=[music_video_cover_image])
 
 
-def render_generate_cover():
+def render_generate_cover() -> (gr.Button, gr.Button, gr.Image):
+    """
+    Renders the cover generation interface component for the music cover creation section.
+    :return: A tuple containing the following Gradio UI components: A button for generating a cover image, a button for
+        sending the generated cover image to the "Add Text to Image" section, and an image display component for
+        displaying the generated cover image.
+    """
     api_key, _, api_image_model = openai_components.render_openai_setup(show_text_model=False)
     with gr.Row(equal_height=False):
         with gr.Group():
@@ -49,7 +62,14 @@ def render_generate_cover():
     return send_to_process_button, send_to_create_video_button, image_output
 
 
-def render_process_cover():
+def render_process_cover() -> (gr.Button, gr.Image, gr.Image):
+    """
+    Renders the cover processing interface component for the music cover creation section. This is where we add text to
+    the cover image.
+    :return: A tuple containing the following Gradio UI components: A button for processing a cover image, an image
+        display component for displaying the cover image before processing, and an image display component for
+        displaying the cover image after processing.
+    """
     with gr.Column():
         gr.Markdown("## Input")
         with gr.Group():
@@ -86,7 +106,11 @@ def render_process_cover():
     return send_to_create_video_button, input_image, image_output
 
 
-def render_music_video_creation():
+def render_music_video_creation() -> gr.Image:
+    """
+    Renders the music video creation interface component for the music cover creation section.
+    :return: An image display component for displaying the cover image.
+    """
     gr.Markdown("## Input")
     with gr.Row(equal_height=False):
         # Sadly we can't use RGBA here due to JPEG images not supporting alpha and breaking. It would be nice if Gradio

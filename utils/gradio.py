@@ -54,8 +54,8 @@ def render_font_picker(default_font_size: int = 55) \
         def update_font_styles(selected_font_family):
             if selected_font_family is None or selected_font_family == "":
                 return []
-            font_syles = list(font_families[selected_font_family].keys())
-            return gr.Dropdown(font_syles, value=font_syles[0], label="Font Style")
+            font_styles = list(font_families[selected_font_family].keys())
+            return gr.Dropdown(font_styles, value=font_styles[0], label="Font Style")
 
         font_family.change(update_font_styles, inputs=[font_family], outputs=[font_style])
     with gr.Group():

@@ -1,9 +1,8 @@
 import gradio as gr
 import json
-import utils.image as image_utils
 import processing.image as image_processing
 import os
-import utils.font_manager as font_manager
+from utils import font_manager, image as image_utils
 import api.chatgpt as chatgpt_api
 
 
