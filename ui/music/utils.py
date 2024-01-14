@@ -61,7 +61,7 @@ def create_music_video(
     # Set up cover
     cover = cv2.imread(image, cv2.IMREAD_UNCHANGED)
     if cover.shape[2] == 3:
-        cover = cv2.cvtColor(cover, cv2.COLOR_BGR2BGRA)
+        cover = cv2.cvtColor(cover, cv2.COLOR_BGR2RGBA)
 
     # Create canvas with 4 channels (RGBA)
     canvas = np.zeros((height, width, 4), dtype=np.uint8)
@@ -97,7 +97,7 @@ def create_music_video(
         background[:, :, c] = (alpha_overlay * overlay[:, :, c] +
                                alpha_background * (1 - alpha_overlay) * background[:, :, c])
     background[:, :, 3] = (alpha_overlay + alpha_background * (1 - alpha_overlay)) * 255
-    background_bgr = cv2.cvtColor(background, cv2.COLOR_BGRA2BGR)
+    background_bgr = cv2.cvtColor(background, cv2.COLOR_BGRA2RGB)
     background_clip = ImageClip(background_bgr).set_duration(audio_clip.duration)
 
     audio_visualizer_color_and_opacity = image_utils.get_rgba(audio_visualizer_color, audio_visualizer_opacity)
