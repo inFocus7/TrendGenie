@@ -89,13 +89,16 @@ def create_music_video(
     background = cv2.resize(background, (width, height))
     if background.shape[2] == 3:
         background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
-    background = cv2.GaussianBlur(background, (15, 15), 0)
     background_color_overlay = image_utils.get_rgba(background_color, background_opacity)
     overlay = np.full((height, width, 4), background_color_overlay, dtype=np.uint8)
-    print("background.shape", background.shape)
-    print("overlay.shape", overlay.shape)
-    background = cv2.addWeighted(background, 1, overlay, 1, 0, dtype=cv2.CV_8U)
-    background_clip = ImageClip(background).set_duration(audio_clip.duration)
+    alpha_overlay = overlay[:, :, 3] / 255.0
+    alpha_background = background[:, :, 3] / 255.0
+    for c in range(0, 3):
+        background[:, :, c] = (alpha_overlay * overlay[:, :, c] +
+                               alpha_background * (1 - alpha_overlay) * background[:, :, c])
+    background[:, :, 3] = (alpha_overlay + alpha_background * (1 - alpha_overlay)) * 255
+    background_bgr = cv2.cvtColor(background, cv2.COLOR_BGRA2BGR)
+    background_clip = ImageClip(background_bgr).set_duration(audio_clip.duration)
 
     audio_visualizer_color_and_opacity = image_utils.get_rgba(audio_visualizer_color, audio_visualizer_opacity)
 
