@@ -1,12 +1,8 @@
 import os
-
-import cv2
 import subprocess
-import shutil
 import time
 import cv2
 from moviepy.editor import AudioFileClip
-import multiprocessing
 import utils.font_manager as font_manager
 import utils.image as image_utils
 import numpy as np
