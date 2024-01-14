@@ -254,6 +254,7 @@ def create_music_video(
     if ffmpeg_process.returncode != 0:
         raise subprocess.CalledProcessError(ffmpeg_process.returncode, ffmpeg_commands)
     progress.print_progress_bar(100, 100, end='\n', start_time=ffmpeg_start_time)
+    print("Done generating final video!\n")
     # clean up the original frames
     if generate_audio_visualizer:
         for file in os.listdir(temp_visualizer_images_dir):
