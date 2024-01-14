@@ -70,6 +70,7 @@ def create_music_video(
     cover_width, cover_height = cover.shape[1], cover.shape[0]
     canvas_width, canvas_height = width, height
     resize_factor = min(canvas_width / cover_width, canvas_height / cover_height)
+    resize_factor *= (4/5)
     new_width = int(cover_width * resize_factor)
     new_height = int(cover_height * resize_factor)
 
@@ -87,6 +88,7 @@ def create_music_video(
     # Add video background
     background = cv2.imread(image)
     background = cv2.resize(background, (width, height))
+    background = cv2.GaussianBlur(background, (49, 49), 0)
     if background.shape[2] == 3:
         background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
     background_color_overlay = image_utils.get_rgba(background_color, background_opacity)
