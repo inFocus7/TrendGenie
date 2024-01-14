@@ -1,4 +1,5 @@
 import math
+import time
 from PIL import Image, ImageFilter, ImageDraw, ImageFont
 from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips
 import multiprocessing
@@ -9,6 +10,7 @@ import tempfile
 import api.chatgpt as chatgpt_api
 import processing.image as image_processing
 import librosa
+from utils import progress
 import cProfile
 
 
@@ -163,9 +165,13 @@ def create_music_video(
 
     visualizer_clip = []
     if generate_audio_visualizer:
+        print("Generating audio visualizer...")
         frequency_loudness, times = analyze_audio(audio, fps)
         audio_frame_duration = 1.0 / fps
         frame_cache = Image.new("RGBA", (width, height))
+
+        total_iterations = len(times)
+        start_time = time.time()
         for i, time_point in enumerate(times):
             if time_point > audio_clip.duration:
                 break
@@ -182,7 +188,11 @@ def create_music_video(
             # the equivalent background frame.
             visualizer_clip.append(frame_clip)
 
+            progress.print_progress_bar(i, total_iterations, start_time=start_time)
+        progress.print_progress_bar(total_iterations, total_iterations, end='\n', start_time=start_time)
+
         visualizer_clip = concatenate_videoclips(visualizer_clip, method="compose")
+        print("Done generating audio visualizer.")
 
     # Place the cover on top of the background
     np_canvas = np.array(canvas)
@@ -238,8 +248,7 @@ def create_music_video(
         temp_audiofile=temp_audio_path,
         threads=threads,
         preset="medium",
-        verbose=False,  # add: logger=None
-        logger=None,
+        verbose=True,  # add: logger=None
         )
 
     return temp_video_path
