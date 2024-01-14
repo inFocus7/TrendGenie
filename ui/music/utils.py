@@ -1,7 +1,11 @@
-import math
+import os
+
+import cv2
+import subprocess
+import shutil
 import time
 import cv2
-from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips
+from moviepy.editor import AudioFileClip
 import multiprocessing
 import utils.font_manager as font_manager
 import utils.image as image_utils
@@ -70,19 +74,17 @@ def create_music_video(
     cover_width, cover_height = cover.shape[1], cover.shape[0]
     canvas_width, canvas_height = width, height
     resize_factor = min(canvas_width / cover_width, canvas_height / cover_height)
-    resize_factor *= (4/5)
+    resize_factor *= (7 / 10)
     new_width = int(cover_width * resize_factor)
     new_height = int(cover_height * resize_factor)
 
     # Calculate cover position to center it on the canvas
     cover_pos = ((canvas_width - new_width) // 2, (canvas_height - new_height) // 2)
-
-    # Resize the cover to fit within the canvas
     cover = cv2.resize(cover, (new_width, new_height))
 
     canvas[cover_pos[1]:cover_pos[1] + new_height, cover_pos[0]:cover_pos[0] + new_width] = cover
 
-    # Load Audio Clip
+    # Load song / audio
     audio_clip = AudioFileClip(audio)
 
     # Add video background
@@ -91,7 +93,7 @@ def create_music_video(
     background = cv2.GaussianBlur(background, (49, 49), 0)
     if background.shape[2] == 3:
         background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
-    background_color_overlay = image_utils.get_rgba(background_color, background_opacity)
+    background_color_overlay = image_utils.get_bgra(background_color, background_opacity)
     overlay = np.full((height, width, 4), background_color_overlay, dtype=np.uint8)
     alpha_overlay = overlay[:, :, 3] / 255.0
     alpha_background = background[:, :, 3] / 255.0
@@ -99,8 +101,9 @@ def create_music_video(
         background[:, :, c] = (alpha_overlay * overlay[:, :, c] +
                                alpha_background * (1 - alpha_overlay) * background[:, :, c])
     background[:, :, 3] = (alpha_overlay + alpha_background * (1 - alpha_overlay)) * 255
-    background_bgr = cv2.cvtColor(background, cv2.COLOR_BGRA2RGB)
-    background_clip = ImageClip(background_bgr).set_duration(audio_clip.duration)
+    background_bgr = cv2.cvtColor(background, cv2.COLOR_BGRA2BGR)
+    tmp_background_image_path = tempfile.mktemp(suffix=".png")
+    cv2.imwrite(tmp_background_image_path, background_bgr)
 
     audio_visualizer_color_and_opacity = image_utils.get_rgba(audio_visualizer_color, audio_visualizer_opacity)
 
@@ -109,13 +112,12 @@ def create_music_video(
     if visualizer_drawing is not None and visualizer_drawing != "":
         custom_drawing = cv2.imread(visualizer_drawing, cv2.IMREAD_UNCHANGED)
         if custom_drawing.shape[2] == 3:
-            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2BGRA)
+            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2RGBA)
 
-    visualizer_clip = []
+    temp_bg_video_path = tempfile.mktemp(suffix=".mp4")
     if generate_audio_visualizer:
         print("Generating audio visualizer...")
         frequency_loudness, times = analyze_audio(audio, fps)
-        audio_frame_duration = 1.0 / fps
         frame_cache = np.zeros((height, width, 4), dtype=np.uint8)
 
         total_iterations = len(times)
@@ -124,30 +126,55 @@ def create_music_video(
                                     max_size=audio_visualizer_max_size, color=audio_visualizer_color_and_opacity,
                                     dot_count=(audio_visualizer_num_rows, audio_visualizer_num_columns))
         vis.initialize_static_values()
+        temp_visualizer_images_dir = tempfile.mkdtemp()
+        os.makedirs(temp_visualizer_images_dir, exist_ok=True)
         for i, time_point in enumerate(times):
             if time_point > audio_clip.duration:
                 break
             frame = frame_cache.copy()
             vis.draw_visualizer(frame, frequency_loudness[i], custom_drawing=custom_drawing)
             frame_np = np.array(frame)
-            frame_clip = ImageClip(frame_np).set_duration(audio_frame_duration)
-            # If I want to add some blending effect, i'll have to do some mask/function here and blend this frame with
-            # the equivalent background frame.
-            visualizer_clip.append(frame_clip)
+            frame_np = cv2.cvtColor(frame_np, cv2.COLOR_RGBA2BGRA)
+            frame_filename = f'{temp_visualizer_images_dir}/frame_{i:05d}.png'
+            cv2.imwrite(frame_filename, frame_np)
 
             progress.print_progress_bar(i, total_iterations, start_time=start_time)
         progress.print_progress_bar(total_iterations, total_iterations, end='\n', start_time=start_time)
 
-        visualizer_clip = concatenate_videoclips(visualizer_clip, method="compose")
-        print("Done generating audio visualizer.")
+        subprocess.run([
+            'ffmpeg', '-y',
+            '-loop', '1',
+            '-i', tmp_background_image_path,
+            '-framerate', str(fps),
+            '-i', f'{temp_visualizer_images_dir}/frame_%05d.png',
+            '-filter_complex', '[0:v][1:v]overlay=format=auto',
+            '-c:v', 'libx264',
+            '-t', str(audio_clip.duration),
+            '-pix_fmt', 'yuv420p',
+            temp_bg_video_path
+        ], check=True)
 
-    # Place the cover on top of the background
-    np_canvas = np.array(canvas)
-    canvas_clip = ImageClip(np_canvas).set_duration(audio_clip.duration)
+        # clean up the original frames
+        for file in os.listdir(temp_visualizer_images_dir):
+            os.remove(os.path.join(temp_visualizer_images_dir, file))
+        os.rmdir(temp_visualizer_images_dir)
+        print("Done generating audio visualizer.")
+    else:
+        subprocess.run([
+            'ffmpeg', '-y',
+            '-loop', '1',
+            '-framerate', str(fps),
+            '-i', tmp_background_image_path,
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-r', str(fps),
+            '-t', str(audio_clip.duration),
+            temp_bg_video_path
+        ], check=True)
 
     # Add text
     font_families = font_manager.get_fonts()
-    text_canvas = np.zeros((width, height, 4), dtype=np.uint8)
+    text_canvas = np.zeros((height, width, 4), dtype=np.uint8)
 
     song_pos = (20, int(height * 0.925))
     text_canvas, (_, song_height) = image_processing.add_text(text_canvas, song, song_pos,
@@ -164,7 +191,7 @@ def create_music_video(
                                                                   song_background_color,
                                                                   song_background_opacity))
     artist_pos = (song_pos[0], song_pos[1] - song_height - 5)
-    text_canvas, (_, artist_height) = image_processing.add_text(text_canvas, artist, artist_pos,
+    text_canvas, (_, _) = image_processing.add_text(text_canvas, artist, artist_pos,
                                                                 font_families[artist_font_type][artist_font_style],
                                                                 font_size=artist_font_size,
                                                                 font_color=image_utils.get_rgba(artist_font_color,
@@ -178,33 +205,46 @@ def create_music_video(
                                                                     artist_background_color, artist_background_opacity))
 
     text_np = np.array(text_canvas)
-    text_clip = ImageClip(text_np).set_duration(audio_clip.duration)
+    np_canvas = np.array(canvas)
+    # Normalize the alpha channels
+    alpha_text = text_np[:, :, 3] / 255.0
+    alpha_canvas = np_canvas[:, :, 3] / 255.0
+    alpha_final = alpha_text + alpha_canvas * (1 - alpha_text)
 
-    if generate_audio_visualizer:
-        final_clip = CompositeVideoClip([background_clip, visualizer_clip, canvas_clip, text_clip])
-    else:
-        final_clip = CompositeVideoClip([background_clip, canvas_clip, text_clip])
+    canvas_final = np.zeros_like(np_canvas)
+    # alpha blend
+    for c in range(3): # Loop over color (non-alpha) channels
+        canvas_final[:, :, c] = (alpha_text * text_np[:, :, c] + alpha_canvas * (1 - alpha_text) *
+                                 np_canvas[:, :, c]) / alpha_final
+    canvas_final[:, :, 3] = alpha_final * 255
+    canvas_final[:, :, :3][alpha_final == 0] = 0
 
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as temp_video_file:
-        temp_video_path = temp_video_file.name
+    temp_canvas_image_path = tempfile.mktemp(suffix=".png")
+    # Convert to BGR for OpenCV
+    canvas_final = cv2.cvtColor(canvas_final, cv2.COLOR_RGBA2BGRA)
+    cv2.imwrite(temp_canvas_image_path, canvas_final)
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
-        temp_audio_path = temp_audio_file.name
+    temp_final_video_path = tempfile.mktemp(suffix=".mp4")
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-i", temp_bg_video_path,
+        "-loop", "1",
+        "-i", temp_canvas_image_path,
+        "-filter_complex", "[0:v][1:v]overlay=format=auto",
+        "-i", audio,
+        "-map", "2:a",
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-strict", "experimental",
+        "-t", str(audio_clip.duration),
+        "-hide_banner",
+        "-loglevel", "error",
+        "-framerate", str(fps),
+        '-pix_fmt', 'yuv420p',
+        temp_final_video_path
+    ], check=True)
 
-    final_clip = final_clip.set_audio(audio_clip)
-
-    threads = multiprocessing.cpu_count()
-    final_clip.write_videofile(
-        temp_video_path,
-        codec="libx264",
-        fps=fps,
-        temp_audiofile=temp_audio_path,
-        threads=threads,
-        preset="medium",
-        verbose=True,  # add: logger=None
-    )
-
-    return temp_video_path
+    return temp_final_video_path
 
 
 def generate_cover_image(api_key, api_model, prompt):
