@@ -1,5 +1,6 @@
 import os
 import subprocess
+import re
 import time
 import cv2
 from moviepy.editor import AudioFileClip
@@ -219,19 +220,45 @@ def create_music_video(
         "-strict", "experimental",
         "-t", str(audio_clip.duration),
         "-hide_banner",
-        "-loglevel", "error",
         "-framerate", str(fps),
         '-pix_fmt', 'yuv420p',
         temp_final_video_path
     ])
-    subprocess.run(ffmpeg_commands, check=True)
+    print("Generating final video...")
+    ffmpeg_process = subprocess.Popen(ffmpeg_commands, stderr=subprocess.PIPE, text=True)
 
+    duration_regex = re.compile(r"Duration: (\d\d):(\d\d):(\d\d)\.\d\d")
+    time_regex = re.compile(r"time=(\d\d):(\d\d):(\d\d)\.\d\d")
+    total_duration_in_seconds = 0
+
+    ffmpeg_start_time = time.time()
+    while True:
+        line = ffmpeg_process.stderr.readline()
+        if not line:
+            break
+
+        # Extract total duration of the video
+        duration_match = duration_regex.search(line)
+        if duration_match:
+            hours, minutes, seconds = map(int, duration_match.groups())
+            total_duration_in_seconds = hours * 3600 + minutes * 60 + seconds
+
+        # Extract current time of encoding
+        time_match = time_regex.search(line)
+        if time_match and total_duration_in_seconds > 0:
+            hours, minutes, seconds = map(int, time_match.groups())
+            current_time = hours * 3600 + minutes * 60 + seconds
+            progress.print_progress_bar(current_time, total_duration_in_seconds, start_time=ffmpeg_start_time)
+
+    ffmpeg_process.wait()
+    if ffmpeg_process.returncode != 0:
+        raise subprocess.CalledProcessError(ffmpeg_process.returncode, ffmpeg_commands)
+    progress.print_progress_bar(100, 100, end='\n', start_time=ffmpeg_start_time)
     # clean up the original frames
     if generate_audio_visualizer:
         for file in os.listdir(temp_visualizer_images_dir):
             os.remove(os.path.join(temp_visualizer_images_dir, file))
         os.rmdir(temp_visualizer_images_dir)
-        print("Done generating audio visualizer.")
 
     return temp_final_video_path
 
