@@ -110,7 +110,6 @@ def create_music_video(
         if custom_drawing.shape[2] == 3:
             custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2RGBA)
 
-    temp_bg_video_path = tempfile.mktemp(suffix=".mp4")
     if generate_audio_visualizer:
         print("Generating audio visualizer...")
         frequency_loudness, times = analyze_audio(audio, fps)
@@ -136,37 +135,6 @@ def create_music_video(
 
             progress.print_progress_bar(i, total_iterations, start_time=start_time)
         progress.print_progress_bar(total_iterations, total_iterations, end='\n', start_time=start_time)
-
-        subprocess.run([
-            'ffmpeg', '-y',
-            '-loop', '1',
-            '-i', tmp_background_image_path,
-            '-framerate', str(fps),
-            '-i', f'{temp_visualizer_images_dir}/frame_%05d.png',
-            '-filter_complex', '[0:v][1:v]overlay=format=auto',
-            '-c:v', 'libx264',
-            '-t', str(audio_clip.duration),
-            '-pix_fmt', 'yuv420p',
-            temp_bg_video_path
-        ], check=True)
-
-        # clean up the original frames
-        for file in os.listdir(temp_visualizer_images_dir):
-            os.remove(os.path.join(temp_visualizer_images_dir, file))
-        os.rmdir(temp_visualizer_images_dir)
-        print("Done generating audio visualizer.")
-    else:
-        subprocess.run([
-            'ffmpeg', '-y',
-            '-loop', '1',
-            '-framerate', str(fps),
-            '-i', tmp_background_image_path,
-            '-c:v', 'libx264',
-            '-pix_fmt', 'yuv420p',
-            '-r', str(fps),
-            '-t', str(audio_clip.duration),
-            temp_bg_video_path
-        ], check=True)
 
     # Add text
     font_families = font_manager.get_fonts()
@@ -221,14 +189,31 @@ def create_music_video(
     cv2.imwrite(temp_canvas_image_path, canvas_final)
 
     temp_final_video_path = tempfile.mktemp(suffix=".mp4")
-    subprocess.run([
+
+    # set up the background video commands
+    ffmpeg_commands = [
         "ffmpeg", "-y",
-        "-i", temp_bg_video_path,
         "-loop", "1",
+        "-i", tmp_background_image_path,
+    ]
+
+    if generate_audio_visualizer:
+        ffmpeg_commands.extend([
+            "-framerate", str(fps),
+            "-i", f'{temp_visualizer_images_dir}/frame_%05d.png',
+        ])
+        filter_complex = "[0][1]overlay=format=auto[bg];[bg][2]overlay=format=auto"
+        audio_input_map = "3:a"
+    else:
+        filter_complex = "[0][1]overlay=format=auto"
+        audio_input_map = "2:a"
+
+    ffmpeg_commands.extend([
+        "-framerate", str(fps),
         "-i", temp_canvas_image_path,
-        "-filter_complex", "[0:v][1:v]overlay=format=auto",
         "-i", audio,
-        "-map", "2:a",
+        "-filter_complex", filter_complex,
+        "-map", audio_input_map,
         "-c:v", "libx264",
         "-c:a", "aac",
         "-strict", "experimental",
@@ -238,7 +223,15 @@ def create_music_video(
         "-framerate", str(fps),
         '-pix_fmt', 'yuv420p',
         temp_final_video_path
-    ], check=True)
+    ])
+    subprocess.run(ffmpeg_commands, check=True)
+
+    # clean up the original frames
+    if generate_audio_visualizer:
+        for file in os.listdir(temp_visualizer_images_dir):
+            os.remove(os.path.join(temp_visualizer_images_dir, file))
+        os.rmdir(temp_visualizer_images_dir)
+        print("Done generating audio visualizer.")
 
     return temp_final_video_path
 
