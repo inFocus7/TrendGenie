@@ -63,6 +63,8 @@ def create_music_video(
     cover = cv2.imread(image, cv2.IMREAD_UNCHANGED)
     if cover.shape[2] == 3:
         cover = cv2.cvtColor(cover, cv2.COLOR_BGR2RGBA)
+    else:
+        cover = cv2.cvtColor(cover, cv2.COLOR_BGRA2RGBA)
 
     # Create canvas with 4 channels (RGBA)
     canvas = np.zeros((height, width, 4), dtype=np.uint8)
