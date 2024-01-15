@@ -35,32 +35,32 @@ def render_image_output() -> (gr.Image, gr.Textbox, gr.Dropdown, gr.Button):
     return image_output, image_name, image_suffix, save_image_button
 
 
-def render_text_editor_parameters(name: str) -> ((gr.Dropdown, gr.Dropdown, gr.ColorPicker, gr.Slider, gr.Number),
-                                                 (gr.Checkbox, gr.ColorPicker, gr.Slider, gr.Number),
-                                                 (gr.Checkbox, gr.ColorPicker, gr.Slider)):
+def render_text_editor_parameters(name: str) -> (dataclasses.FontGradioComponents,
+                                                 dataclasses.FontDropShadowGradioComponents,
+                                                 dataclasses.FontBackgroundGradioComponents):
     """
     Renders the text editor parameters.
     :param name: The name of the text editor parameters. This is used as the label for the accordion.
-    :return: A tuple containing the font, drop shadow, and background components.
+    :return: Classes containing the font, drop shadow, and background components.
     """
     with gr.Accordion(label=name):
         with gr.Column():
-            font_family, font_style, font_color, font_opacity, font_size = gru.render_font_picker()
+            font_data = gru.render_font_picker()
             with gr.Group():
-                drop_shadow_checkbox = gr.Checkbox(False, label="Enable Drop Shadow", interactive=True)
-                with gr.Group(visible=drop_shadow_checkbox.value) as additional_options:
+                drop_shadow_enabled = gr.Checkbox(False, label="Enable Drop Shadow", interactive=True)
+                with gr.Group(visible=drop_shadow_enabled.value) as additional_options:
                     drop_shadow_color, drop_shadow_opacity = gru.render_color_opacity_picker()
                     drop_shadow_radius = gr.Number(0, label="Shadow Radius")
-                    gru.bind_checkbox_to_visibility(drop_shadow_checkbox, additional_options)
+                    gru.bind_checkbox_to_visibility(drop_shadow_enabled, additional_options)
             with gr.Group():
-                background_checkbox = gr.Checkbox(False, label="Enable Background", interactive=True)
-                with gr.Group(visible=background_checkbox.value) as additional_options:
+                background_enabled = gr.Checkbox(False, label="Enable Background", interactive=True)
+                with gr.Group(visible=background_enabled.value) as additional_options:
                     background_color, background_opacity = gru.render_color_opacity_picker()
-                    gru.bind_checkbox_to_visibility(background_checkbox, additional_options)
+                    gru.bind_checkbox_to_visibility(background_enabled, additional_options)
 
-    return ((font_family, font_style, font_size, font_color, font_opacity),
-            (drop_shadow_checkbox, drop_shadow_color, drop_shadow_opacity, drop_shadow_radius),
-            (background_checkbox, background_color, background_opacity))
+    return (font_data, dataclasses.FontDropShadowGradioComponents(drop_shadow_enabled, drop_shadow_color,
+                                                                  drop_shadow_opacity, drop_shadow_radius),
+            dataclasses.FontBackgroundGradioComponents(background_enabled, background_color, background_opacity))
 
 
 def add_background(image_pil: Image, draw: ImageDraw, position: tuple[int, int], text: str, font: ImageFont,
@@ -256,8 +256,6 @@ def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[i
     font = ImageFont.truetype(font_path, font_size)
     draw = ImageDraw.Draw(txt_layer)
 
-    img_width, _ = image_pil.size
-
     if max_width:  # Prepare for text wrapping if max_width is provided
         wrapped_text = textwrap.fill(text, width=max_width)
     else:
@@ -266,31 +264,32 @@ def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[i
     lines = wrapped_text.split('\n')
 
     y_offset = 0
-    max_line_width = 0  # Keep track of the widest line
-    total_height = 0  # Accumulate total height of text block
+    # max_line_width = 0  # Keep track of the widest line
+    # total_height = 0  # Accumulate total height of text block
+    text_container = dataclasses.Size(width=0, height=0)
     for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
-        line_width = bbox[2] - bbox[0]
-        line_height = bbox[3] - bbox[1]
-        max_line_width = max(max_line_width, line_width)
-        total_height += line_height
+        line_size = dataclasses.Size(width=bbox[2] - bbox[0], height=bbox[3] - bbox[1])
+        text_container.width = max(text_container.width, line_size.width)
+        text_container.height += line_size.height
 
-        text_x = position[0]
+        pos = dataclasses.Position
+        pos.x = position[0]
         if x_center:
-            text_x = (img_width - line_width) / 2
-        line_y = position[1] + y_offset
-        y_offset += (line_height + 6)
+            pos.x = (image_pil.width - line_size.width) / 2
+        pos.y = position[1] + y_offset
+        y_offset += (line_size.height + 6)
 
         if show_background:
-            (text_x, line_y), _ = add_background(image_pil, draw, (text_x, line_y), line, font,
-                                                 fill_color=background_color, border_radius=10)
+            (pos.x, pos.y), _ = add_background(image_pil, draw, (pos.x, pos.y), line, font,
+                                               fill_color=background_color, border_radius=10)
 
         if show_shadow:
-            shadow_position = (text_x, line_y)
+            shadow_position = (pos.x, pos.y)
             add_blurred_shadow(image_pil, line, shadow_position, font, shadow_color=shadow_color,
                                blur_radius=shadow_radius)
 
-        draw.text((text_x, line_y), line, font=font, fill=font_color)
+        draw.text((pos.x, pos.y), line, font=font, fill=font_color)
 
     image_pil = Image.alpha_composite(image_pil, txt_layer)
-    return np.array(image_pil), (max_line_width, total_height)
+    return np.array(image_pil), (text_container.width, text_container.height)

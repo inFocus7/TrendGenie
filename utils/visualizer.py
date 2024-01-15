@@ -4,6 +4,7 @@ This module defines the Visualizer class, which is used to draw the visualizer o
 from typing import Dict, Optional
 import numpy as np
 import cv2
+from utils import dataclasses
 
 
 class Visualizer:
@@ -11,13 +12,11 @@ class Visualizer:
     This class is used to draw the visualizer on the canvas.
     Will be replaced with a more general solution in the future to allow for more customization.
     """
-    def __init__(self, base_size, max_size, color, dot_count, width, height):
-        self.base_size = base_size
-        self.max_size = max_size
+    def __init__(self, dot_size: dataclasses.MinMax, color, dot_count: dataclasses.RowCol, size: dataclasses.Size):
+        self.dot_size = dot_size
         self.color = color
         self.dot_count = dot_count
-        self.width = width
-        self.height = height
+        self.size = size
         self.cached_dot_positions = None
         self.cached_resized_drawing = {}
 
@@ -27,13 +26,13 @@ class Visualizer:
         :return: None.
         """
         # Calculate and store dot positions
-        x_positions = (self.width / self.dot_count[0]) * np.arange(self.dot_count[0]) + (
-                self.width / self.dot_count[0] / 2)
-        y_positions = (self.height / self.dot_count[1]) * np.arange(self.dot_count[1]) + (
-                self.height / self.dot_count[1] / 2)
+        x_positions = (self.size.width / self.dot_count.col) * np.arange(self.dot_count.col) + (
+                self.size.width / self.dot_count.col / 2)
+        y_positions = (self.size.height / self.dot_count.row) * np.arange(self.dot_count.row) + (
+                self.size.height / self.dot_count.row / 2)
         grid_x, grid_y = np.meshgrid(x_positions, y_positions)
-        self.cached_dot_positions = [(grid_x[y, x], grid_y[y, x]) for x in range(self.dot_count[0]) for y in
-                                     range(self.dot_count[1])]
+        self.cached_dot_positions = [(grid_x[y, x], grid_y[y, x]) for x in range(self.dot_count.col) for y in
+                                     range(self.dot_count.row)]
 
     def draw_visualizer(self: "Visualizer", canvas: np.ndarray, frequency_data: Dict[float, float],
                         custom_drawing: Optional[np.ndarray] = None) -> None:
@@ -44,15 +43,11 @@ class Visualizer:
         :param custom_drawing: A custom drawing to use instead of the default circle.
         :return: None.
         """
-        # Calculate and store dot positions
-        dot_count_x = self.dot_count[0]
-        dot_count_y = self.dot_count[1]
-
         # Precompute log frequencies
         freq_keys = np.array(list(frequency_data.keys()))
         start_freq = freq_keys[freq_keys > 0][0] if freq_keys[freq_keys > 0].size > 0 else 1.0
         end_freq = freq_keys[-1]
-        log_freqs = np.logspace(np.log10(start_freq), np.log10(end_freq), dot_count_x)
+        log_freqs = np.logspace(np.log10(start_freq), np.log10(end_freq), self.dot_count.col)
 
         # Find the maximum and minimum loudness values, ignoring -80 dB
         freq_bands = np.array([frequency_data[key] for key in freq_keys if key > 0])  # Ignore 0 Hz
@@ -62,9 +57,9 @@ class Visualizer:
 
         # Precompute loudness values
         loudness_values = {}
-        for x in range(dot_count_x):
+        for x in range(self.dot_count.col):
             lower_bound = log_freqs[x]
-            upper_bound = log_freqs[x + 1] if x < dot_count_x - 1 else end_freq + 1
+            upper_bound = log_freqs[x + 1] if x < self.dot_count.col - 1 else end_freq + 1
             band_freqs = [freq for freq in freq_keys if lower_bound <= freq < upper_bound]
             if not band_freqs:
                 closest_freq = min(freq_keys, key=lambda f, lb=lower_bound: abs(f - lb))
@@ -76,15 +71,15 @@ class Visualizer:
 
         cached_dot_sizes = {}
         for i, (pos_x, pos_y) in enumerate(self.cached_dot_positions):
-            column = i // dot_count_y  # Ensure the correct column is computed
+            column = i // self.dot_count.row  # Ensure the correct column is computed
 
             if column not in cached_dot_sizes:
                 avg_loudness = loudness_values[column]
                 # Scale the loudness to the dot size
                 scaled_loudness = (avg_loudness - min_loudness) / (
                         max_loudness - min_loudness) if max_loudness != min_loudness else 0
-                dot_size = self.base_size + scaled_loudness * (self.max_size - self.base_size)
-                dot_size = min(max(dot_size, self.base_size), self.max_size)
+                dot_size = self.dot_size.min + scaled_loudness * (self.dot_size.max - self.dot_size.min)
+                dot_size = min(max(dot_size, self.dot_size.min), self.dot_size.max)
 
                 cached_dot_sizes[column] = dot_size
             else:

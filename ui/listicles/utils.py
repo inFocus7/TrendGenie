@@ -83,24 +83,16 @@ def process(image_files: list[Any], json_data: str,
         return None
 
     font_families = font_manager.get_fonts()
-    nff = font_families[nf_family][nf_style]
-    dff = font_families[df_family][df_style]
-    mff = font_families[mf_family][mf_style]
-    rff = font_families[rf_family][rf_style]
 
     images = []
 
-    rating_offset = 34
-    text_offset = 49
     json_data = json.loads(json_data)
-
     if len(image_files) != len(json_data["items"]):
         gr.Warning(
             f"Number of images ({len(image_files)}) does not match the number of items in the JSON ({len(json_data)}).")
 
     # We skip any entries that don't have an image field.
-    json_data_items = json_data["items"]
-    json_dict = {item["image"]: item for item in json_data_items if "image" in item}
+    json_dict = {item["image"]: item for item in json_data["items"] if "image" in item}
 
     for image_file in image_files:
         img_name = os.path.basename(image_file.name)
@@ -112,31 +104,31 @@ def process(image_files: list[Any], json_data: str,
         img = image_processing.read_image_from_disk(image_file.name, size=(1080, 1920))
         item = json_dict[img_name]
 
-        # Calculate positions for the text
+        # Calculate y-positions for the text
         top_center = (0, int(img.shape[0] * 0.13))
         bottom_center = (0, int(img.shape[0] * 0.70))
 
         # Add association and rating at the top center, one above the other
-        img, (_, association_height) = image_processing.add_text(img, item["association"], top_center, mff,
-                                                                 font_size=mfs,
+        img, (_, association_height) = image_processing.add_text(img, item["association"], top_center,
+                                                                 font_families[mf_family][mf_style], font_size=mfs,
                                                                  font_color=image_utils.get_rgba(mfc, mfo),
-                                                                 show_shadow=mse,
-                                                                 shadow_radius=msr,
+                                                                 show_shadow=mse, shadow_radius=msr,
                                                                  shadow_color=image_utils.get_rgba(msc, mso),
                                                                  show_background=mbe,
                                                                  background_color=image_utils.get_rgba(mbc, mbo),
                                                                  x_center=True)
 
         img, (_, _) = image_processing.add_text(img, f'{json_data["rating_type"]}: {item["rating"]}%',
-                                                (0, top_center[1] + association_height + rating_offset),
-                                                rff, font_size=rfs, font_color=image_utils.get_rgba(rfc, rfo),
-                                                show_shadow=rse, shadow_radius=rsr,
-                                                shadow_color=image_utils.get_rgba(rsc, rso),
+                                                (0, top_center[1] + association_height + 34),
+                                                font_families[rf_family][rf_style], font_size=rfs,
+                                                font_color=image_utils.get_rgba(rfc, rfo), show_shadow=rse,
+                                                shadow_radius=rsr, shadow_color=image_utils.get_rgba(rsc, rso),
                                                 show_background=rbe, background_color=image_utils.get_rgba(rbc, rbo),
                                                 x_center=True)
 
         # Add name and description at the bottom center, one above the other
-        img, (_, name_height) = image_processing.add_text(img, item["name"], bottom_center, nff, font_size=nfs,
+        img, (_, name_height) = image_processing.add_text(img, item["name"], bottom_center,
+                                                          font_families[nf_family][nf_style], font_size=nfs,
                                                           font_color=image_utils.get_rgba(nfc, nfo),
                                                           max_width=15,
                                                           show_shadow=nse, shadow_radius=nsr,
@@ -145,10 +137,10 @@ def process(image_files: list[Any], json_data: str,
                                                           background_color=image_utils.get_rgba(nbc, nbo),
                                                           x_center=True)
         img, (_, _) = image_processing.add_text(img, f'"{item["description"]}"',
-                                                (0, bottom_center[1] + name_height + text_offset), dff,
-                                                font_size=dfs, font_color=image_utils.get_rgba(dfc, dfo),
-                                                show_shadow=dse, shadow_radius=dsr,
-                                                shadow_color=image_utils.get_rgba(dsc, dso),
+                                                (0, bottom_center[1] + name_height + 49),
+                                                font_families[df_family][df_style], font_size=dfs,
+                                                font_color=image_utils.get_rgba(dfc, dfo), show_shadow=dse,
+                                                shadow_radius=dsr, shadow_color=image_utils.get_rgba(dsc, dso),
                                                 show_background=dbe, background_color=image_utils.get_rgba(dbc, dbo),
                                                 max_width=43, x_center=True)
 

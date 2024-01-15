@@ -45,6 +45,48 @@ def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]]
     return downsampled_frequency_loudness, downsampled_times
 
 
+def _audio_visualizer_generator(frame_size: dataclasses.Size, audio_path: str, audio_length: int, fps: int,
+                                audio_visualizer: dataclasses.RGBOpacity, dot_size: dataclasses.MinMax,
+                                dot_count: dataclasses.RowCol, visualizer_drawing: Optional[str] = None) -> str:
+    print("Generating audio visualizer...")
+
+    audio_visualizer_color_and_opacity = image_utils.get_rgba(audio_visualizer.color, audio_visualizer.opacity)
+
+    custom_drawing = None
+    if visualizer_drawing is not None and visualizer_drawing != "":
+        custom_drawing = cv2.imread(visualizer_drawing, cv2.IMREAD_UNCHANGED)
+        if custom_drawing.shape[2] == 3:
+            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2RGBA)
+        else:
+            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGRA2RGBA)
+
+    frequency_loudness, times = analyze_audio(audio_path, fps)
+    frame_cache = np.zeros((frame_size.height, frame_size.width, 4), dtype=np.uint8)
+
+    total_iterations = len(times)
+    start_time = time.time()
+    vis = visualizer.Visualizer(size=dataclasses.Size(frame_size.width, frame_size.height),
+                                dot_size=dot_size, color=audio_visualizer_color_and_opacity,
+                                dot_count=dataclasses.RowCol(dot_count.row, dot_count.col))
+    vis.initialize_static_values()
+    temp_visualizer_images_dir = tempfile.mkdtemp()
+    os.makedirs(temp_visualizer_images_dir, exist_ok=True)
+    for i, time_point in enumerate(times):
+        if time_point > audio_length:
+            break
+        frame = frame_cache.copy()
+        vis.draw_visualizer(frame, frequency_loudness[i], custom_drawing=custom_drawing)
+        frame_np = np.array(frame)
+        frame_np = cv2.cvtColor(frame_np, cv2.COLOR_RGBA2BGRA)
+        frame_filename = f'{temp_visualizer_images_dir}/frame_{i:05d}.png'
+        cv2.imwrite(frame_filename, frame_np)
+
+        progress.print_progress_bar(i, total_iterations, start_time=start_time)
+    progress.print_progress_bar(total_iterations, total_iterations, end='\n', start_time=start_time)
+
+    return temp_visualizer_images_dir
+
+
 def create_music_video(
         image_path: str, audio_path: str, fps: int,
         artist: str, artist_font_type: str, artist_font_style: str, artist_font_size: int,
@@ -112,7 +154,7 @@ def create_music_video(
 
     # Could probably expand to 4k, but unnecessary for this type of music video
     # Maybe in a future iteration it could be worth it
-    width, height = 1920, 1080
+    frame_size = dataclasses.Size(1920, 1080)
 
     # Set up cover
     cover = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
@@ -122,33 +164,32 @@ def create_music_video(
         cover = cv2.cvtColor(cover, cv2.COLOR_BGRA2RGBA)
 
     # Create canvas with 4 channels (RGBA)
-    canvas = np.zeros((height, width, 4), dtype=np.uint8)
+    canvas = np.zeros((frame_size.height, frame_size.width, 4), dtype=np.uint8)
 
     # Calculate dimensions for resizing the cover to fit within the canvas while maintaining its aspect ratio
-    cover_width, cover_height = cover.shape[1], cover.shape[0]
-    canvas_width, canvas_height = width, height
-    resize_factor = min(canvas_width / cover_width, canvas_height / cover_height)
+    cover_size = dataclasses.Size(cover.shape[1], cover.shape[0])
+    resize_factor = min(frame_size.width / cover_size.width, frame_size.height / cover_size.height)
     resize_factor *= (7 / 10)
-    new_width = int(cover_width * resize_factor)
-    new_height = int(cover_height * resize_factor)
+    cover_size.width = int(cover_size.width * resize_factor)
+    cover_size.height = int(cover_size.height * resize_factor)
 
     # Calculate cover position to center it on the canvas
-    cover_pos = ((canvas_width - new_width) // 2, (canvas_height - new_height) // 2)
-    cover = cv2.resize(cover, (new_width, new_height))
+    cover_pos = ((frame_size.width - cover_size.width) // 2, (frame_size.height - cover_size.height) // 2)
+    cover = cv2.resize(cover, (cover_size.width, cover_size.height))
 
-    canvas[cover_pos[1]:cover_pos[1] + new_height, cover_pos[0]:cover_pos[0] + new_width] = cover
+    canvas[cover_pos[1]:cover_pos[1] + cover_size.height, cover_pos[0]:cover_pos[0] + cover_size.width] = cover
 
     # Load song / audio
     audio_clip = AudioFileClip(audio_path)
 
     # Add video background
     background = cv2.imread(image_path)
-    background = cv2.resize(background, (width, height))
+    background = cv2.resize(background, (frame_size.width, frame_size.height))
     background = cv2.GaussianBlur(background, (49, 49), 0)
     if background.shape[2] == 3:
         background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
     background_color_overlay = image_utils.get_bgra(background_color, background_opacity)
-    overlay = np.full((height, width, 4), background_color_overlay, dtype=np.uint8)
+    overlay = np.full((frame_size.height, frame_size.width, 4), background_color_overlay, dtype=np.uint8)
     alpha_overlay = overlay[:, :, 3] / 255.0
     alpha_background = background[:, :, 3] / 255.0
     for c in range(0, 3):
@@ -159,48 +200,21 @@ def create_music_video(
     tmp_background_image_path = tempfile.mktemp(suffix=".png")
     cv2.imwrite(tmp_background_image_path, background_bgr)
 
-    audio_visualizer_color_and_opacity = image_utils.get_rgba(audio_visualizer_color, audio_visualizer_opacity)
-
-    # Add audio visualizer
-    custom_drawing = None
-    if visualizer_drawing is not None and visualizer_drawing != "":
-        custom_drawing = cv2.imread(visualizer_drawing, cv2.IMREAD_UNCHANGED)
-        if custom_drawing.shape[2] == 3:
-            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2RGBA)
-        else:
-            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGRA2RGBA)
-
     if generate_audio_visualizer:
-        print("Generating audio visualizer...")
-        frequency_loudness, times = analyze_audio(audio_path, fps)
-        frame_cache = np.zeros((height, width, 4), dtype=np.uint8)
-
-        total_iterations = len(times)
-        start_time = time.time()
-        vis = visualizer.Visualizer(width=width, height=height, base_size=audio_visualizer_min_size,
-                                    max_size=audio_visualizer_max_size, color=audio_visualizer_color_and_opacity,
-                                    dot_count=(audio_visualizer_num_rows, audio_visualizer_num_columns))
-        vis.initialize_static_values()
-        temp_visualizer_images_dir = tempfile.mkdtemp()
-        os.makedirs(temp_visualizer_images_dir, exist_ok=True)
-        for i, time_point in enumerate(times):
-            if time_point > audio_clip.duration:
-                break
-            frame = frame_cache.copy()
-            vis.draw_visualizer(frame, frequency_loudness[i], custom_drawing=custom_drawing)
-            frame_np = np.array(frame)
-            frame_np = cv2.cvtColor(frame_np, cv2.COLOR_RGBA2BGRA)
-            frame_filename = f'{temp_visualizer_images_dir}/frame_{i:05d}.png'
-            cv2.imwrite(frame_filename, frame_np)
-
-            progress.print_progress_bar(i, total_iterations, start_time=start_time)
-        progress.print_progress_bar(total_iterations, total_iterations, end='\n', start_time=start_time)
+        temp_visualizer_images_dir = _audio_visualizer_generator(frame_size, audio_path, audio_clip.duration, fps,
+                                                                 dataclasses.RGBOpacity(audio_visualizer_color,
+                                                                                        audio_visualizer_opacity),
+                                                                 dataclasses.MinMax(audio_visualizer_min_size,
+                                                                                    audio_visualizer_max_size),
+                                                                 dataclasses.RowCol(audio_visualizer_num_rows,
+                                                                                    audio_visualizer_num_columns),
+                                                                 visualizer_drawing=visualizer_drawing)
 
     # Add text
     font_families = font_manager.get_fonts()
-    text_canvas = np.zeros((height, width, 4), dtype=np.uint8)
+    text_canvas = np.zeros((frame_size.height, frame_size.width, 4), dtype=np.uint8)
 
-    song_pos = (20, int(height * 0.925))
+    song_pos = (20, int(frame_size.height * 0.925))
     text_canvas, (_, song_height) = image_processing.add_text(text_canvas, song, song_pos,
                                                               font_families[song_font_type][song_font_style],
                                                               font_size=song_font_size,
@@ -381,8 +395,6 @@ def process(image_path: str, artist: str, song: str,
         return None
 
     font_families = font_manager.get_fonts()
-    aff = font_families[af_family][af_style]
-    sff = font_families[sf_family][sf_style]
 
     img = image_processing.read_image_from_disk(image_path)
 
@@ -390,7 +402,7 @@ def process(image_path: str, artist: str, song: str,
     top_center = (0, int(img.shape[0] * 0.13))
     bottom_center = (0, int(img.shape[0] * 0.87))
 
-    img, (_, _) = image_processing.add_text(img, artist, top_center, aff,
+    img, (_, _) = image_processing.add_text(img, artist, top_center, font_families[af_family][af_style],
                                             font_size=afs,
                                             font_color=image_utils.get_rgba(afc, afo),
                                             show_shadow=ase,
@@ -400,7 +412,7 @@ def process(image_path: str, artist: str, song: str,
                                             background_color=image_utils.get_rgba(abc, abo),
                                             x_center=True)
 
-    img, (_, _) = image_processing.add_text(img, song, bottom_center, sff, font_size=sfs,
+    img, (_, _) = image_processing.add_text(img, song, bottom_center, font_families[sf_family][sf_style], font_size=sfs,
                                             font_color=image_utils.get_rgba(sfc, sfo),
                                             max_width=15,
                                             show_shadow=sse, shadow_radius=ssr,

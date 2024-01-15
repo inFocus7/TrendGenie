@@ -2,7 +2,7 @@
 This module contains utility functions for rendering widely-used Gradio components.
 """
 import gradio as gr
-from utils import font_manager
+from utils import font_manager, dataclasses
 
 
 def render_color_opacity_picker(default_name_label: str = "Font") -> tuple[gr.ColorPicker, gr.Slider]:
@@ -33,8 +33,7 @@ def bind_checkbox_to_visibility(checkbox: gr.Checkbox, group: gr.Group):
     )
 
 
-def render_font_picker(default_font_size: int = 55) \
-        -> tuple[gr.Dropdown, gr.Dropdown, gr.ColorPicker, gr.Slider, gr.Number]:
+def render_font_picker(default_font_size: int = 55) -> dataclasses.FontGradioComponents:
     """
     Renders a font picker with the appropriate styling.
     :param default_font_size: The default font size to use.
@@ -62,7 +61,7 @@ def render_font_picker(default_font_size: int = 55) \
         font_color, font_opacity = render_color_opacity_picker()
         font_size = gr.Number(default_font_size, label="Font Size", interactive=True)
 
-    return font_family, font_style, font_color, font_opacity, font_size
+    return dataclasses.FontGradioComponents(font_family, font_style, font_color, font_opacity, font_size)
 
 
 def render_tool_description(description: str):

@@ -41,7 +41,7 @@ def render_generate_cover() -> (gr.Button, gr.Button, gr.Image):
         sending the generated cover image to the "Add Text to Image" section, and an image display component for
         displaying the generated cover image.
     """
-    api_key, _, api_image_model = openai_components.render_openai_setup(show_text_model=False)
+    open_ai_components = openai_components.render_openai_setup(show_text_model=False)
     with gr.Row(equal_height=False):
         with gr.Group():
             image_prompt = gr.Textbox(label="Image Prompt", lines=6, max_lines=10)
@@ -54,7 +54,8 @@ def render_generate_cover() -> (gr.Button, gr.Button, gr.Image):
                     send_to_process_button = gr.Button("Send Image to 'Add Text to Image'", variant="secondary")
                     send_to_create_video_button = gr.Button("Send Image to 'Create Music Video'", variant="secondary")
 
-    generate_image_button.click(generate_cover_image, inputs=[api_key, api_image_model, image_prompt],
+    generate_image_button.click(generate_cover_image, inputs=[open_ai_components.api_key,
+                                                              open_ai_components.api_image_model, image_prompt],
                                 outputs=[image_output])
     save_image_button.click(image_processing.save_image_to_disk, inputs=[image_output, image_name, image_suffix],
                             outputs=[])
@@ -70,7 +71,7 @@ def render_process_cover() -> (gr.Button, gr.Image, gr.Image):
         display component for displaying the cover image before processing, and an image display component for
         displaying the cover image after processing.
     """
-    with gr.Column():
+    with (gr.Column()):
         gr.Markdown("## Input")
         with gr.Group():
             input_image = gr.Image(sources=["upload"], label="Cover Image (png)", type="filepath",
@@ -80,13 +81,13 @@ def render_process_cover() -> (gr.Button, gr.Image, gr.Image):
         with gr.Row(equal_height=False):
             with gr.Group():
                 artist_name = gr.Textbox(label="Artist Name", lines=1, max_lines=1, scale=1)
-                (af_family, af_style, afs, afc, afo), (ase, asc, aso, asr), (
-                    abe, abc, abo) = image_processing.render_text_editor_parameters("Artist Text Parameters")
+                artist_font, artist_shadow, artist_background = image_processing.render_text_editor_parameters(
+                    "Artist Text Parameters")
 
             with gr.Group():
                 song_name = gr.Textbox(label="Song Title", lines=1, max_lines=1, scale=2)
-                (sf_family, sf_style, sfs, sfc, sfo), (sse, ssc, sso, ssr), (
-                    sbe, sbc, sbo) = image_processing.render_text_editor_parameters("Song Text Parameters")
+                song_font, song_shadow, song_background = \
+                    image_processing.render_text_editor_parameters("Song Text Parameters")
 
         process_button = gr.Button("Process", variant="primary")
 
@@ -97,8 +98,14 @@ def render_process_cover() -> (gr.Button, gr.Image, gr.Image):
                 send_to_create_video_button = gr.Button("Send Image to 'Create Music Video'", variant="secondary")
 
     process_button.click(process, inputs=[input_image, artist_name, song_name,
-                                          af_family, af_style, afs, afc, afo, ase, asc, aso, asr, abe, abc, abo,
-                                          sf_family, sf_style, sfs, sfc, sfo, sse, ssc, sso, ssr, sbe, sbc, sbo],
+                                          artist_font.family, artist_font.style, artist_font.size, artist_font.color,
+                                          artist_font.opacity, artist_shadow.enabled, artist_shadow.color,
+                                          artist_shadow.opacity, artist_shadow.radius, artist_background.enabled,
+                                          artist_background.color, artist_background.opacity, song_font.family,
+                                          song_font.style, song_font.size, song_font.color, song_font.opacity,
+                                          song_shadow.enabled, song_shadow.color, song_shadow.opacity,
+                                          song_shadow.radius, song_background.enabled, song_background.color,
+                                          song_background.opacity],
                          outputs=[image_output])
     save_image_button.click(image_processing.save_image_to_disk,
                             inputs=[image_output, image_name, image_suffix], outputs=[])
@@ -120,12 +127,11 @@ def render_music_video_creation() -> gr.Image:
         background_color, background_opacity = gru.render_color_opacity_picker(default_name_label="Background")
         with gr.Group():
             artist_name = gr.Textbox(label="Artist Name", lines=1, max_lines=1, scale=1)
-            (artist_ffamily, artist_fstyle, artist_fsize, artist_fcolor, artist_fopacity), (ase, asc, aso, asr), (
-                abe, abc, abo) = image_processing.render_text_editor_parameters("Text Parameters")
+            artist_font, artist_shadow, artist_background = \
+                image_processing.render_text_editor_parameters("Text Parameters")
         with gr.Group():
             song_title = gr.Textbox(label="Song Title", lines=1, max_lines=1, scale=2)
-            (song_ffamily, song_fstyle, song_fsize, song_fcolor, song_fopacity), (sse, ssc, sso, ssr), (
-                sbe, sbc, sbo) = image_processing.render_text_editor_parameters("Text Parameters")
+            song_font, song_shadow, song_background = image_processing.render_text_editor_parameters("Text Parameters")
         with gr.Column():
             # Defaulting to 1. It's a still image, but may expand by adding some effects (grain, and not sure what else)
             fps = gr.Number(value=1, label="FPS", minimum=1, maximum=144)
@@ -159,12 +165,17 @@ def render_music_video_creation() -> gr.Image:
     with gr.Group():
         video_output, video_name, video_suffix, save_video_button = video_processing.render_video_output()
 
-    create_video_button.click(create_music_video, inputs=[cover_image, audio_filepath, fps,
-                                                          artist_name, artist_ffamily, artist_fstyle, artist_fsize,
-                                                          artist_fcolor, artist_fopacity, ase, asc, aso, asr, abe, abc,
-                                                          abo, song_title, song_ffamily, song_fstyle, song_fsize,
-                                                          song_fcolor, song_fopacity, sse, ssc, sso, ssr, sbe, sbc, sbo,
-                                                          background_color, background_opacity,
+    create_video_button.click(create_music_video, inputs=[cover_image, audio_filepath, fps, artist_name,
+                                                          artist_font.family, artist_font.style, artist_font.size,
+                                                          artist_font.color, artist_font.opacity, artist_shadow.enabled,
+                                                          artist_shadow.color, artist_shadow.opacity,
+                                                          artist_shadow.radius, artist_background.enabled,
+                                                          artist_background.color, artist_background.opacity,
+                                                          song_title, song_font.family, song_font.style, song_font.size,
+                                                          song_font.color, song_font.opacity, song_shadow.enabled,
+                                                          song_shadow.color, song_shadow.opacity, song_shadow.radius,
+                                                          song_background.enabled, song_background.color,
+                                                          song_background.opacity, background_color, background_opacity,
                                                           generate_audio_visualizer_button, audio_visualizer_color,
                                                           audio_visualizer_opacity, audio_visualizer_drawing,
                                                           audio_visualizer_num_rows, audio_visualizer_num_columns,
