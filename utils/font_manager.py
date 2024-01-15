@@ -27,7 +27,7 @@ def initialize_inflect() -> inflect.engine:
     Initializes the inflect engine.
     :return: The inflect engine.
     """
-    global P
+    global P  # pylint: disable=global-statement
     if P is None:
         P = inflect.engine()
 
@@ -39,7 +39,7 @@ def initialize_fonts() -> NestedDict:
     Initializes the font families from the global FONTS_DIRS.
     :return: The font families and their paths. They are called by map[font_family][font_style].
     """
-    global FONT_FAMILIES
+    global FONT_FAMILIES  # pylint: disable=global-statement
 
     font_files = []
     # Add TrendGenie fonts
@@ -76,7 +76,7 @@ def get_fonts() -> NestedDict:
     Gets the font families. If they are not initialized, it initializes them.
     :return: The font families and their paths. They are called by map[font_family][font_style].
     """
-    global FONT_FAMILIES
+    global FONT_FAMILIES  # pylint: disable=global-statement
     if FONT_FAMILIES is None:
         FONT_FAMILIES = initialize_fonts()
 
@@ -88,7 +88,7 @@ def get_inflect() -> inflect.engine:
     Gets the inflect engine. If it is not initialized, it initializes it.
     :return: The inflect engine.
     """
-    global P
+    global P  # pylint: disable=global-statement
     if P is None:
         P = initialize_inflect()
 

@@ -48,7 +48,7 @@ def render_batch_section() -> (gr.File, gr.Code):
                     if not json_file:
                         gr.Warning("No JSON file uploaded. Reverse to default.")
                         return input_batch_json.value
-                    with open(json_file.name, "r") as file:
+                    with open(json_file.name, "r", encoding="utf-8") as file:
                         json_data = json.load(file)
                         json_data = json.dumps(json_data, indent=4)
 

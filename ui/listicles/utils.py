@@ -3,24 +3,84 @@ This file contains the functions that are used by the Gradio UI to generate list
 """
 import os
 import json
-from typing import Optional
+from typing import Optional, Any, List
 import gradio as gr
+import numpy as np
 import processing.image as image_processing
-from utils import font_manager, image as image_utils
+from utils import font_manager, image as image_utils, dataclasses
 import api.chatgpt as chatgpt_api
 
 
-def process(image_files, json_data,
-            nf_family, nf_style, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe, nbc, nbo,
-            df_family, df_style, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe, dbc, dbo,
-            mf_family, mf_style, mfs, mfc, mfo, mse, msc, mso, msr, mbe, mbc, mbo,
-            rf_family, rf_style, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe, rbc, rbo):
+def process(image_files: list[Any], json_data: str,
+            nf_family: str, nf_style: str, nfs: int, nfc: dataclasses.RGBColor, nfo: int, nse: bool,
+            nsc: dataclasses.RGBColor, nso: int, nsr, nbe: bool, nbc: dataclasses.RGBColor, nbo: int,
+            df_family: str, df_style: str, dfs: int, dfc: dataclasses.RGBColor, dfo: int, dse: bool,
+            dsc: dataclasses.RGBColor, dso: int, dsr, dbe: bool, dbc: dataclasses.RGBColor, dbo: int,
+            mf_family: str, mf_style: str, mfs: int, mfc: dataclasses.RGBColor, mfo: int, mse: bool,
+            msc: dataclasses.RGBColor, mso: int, msr, mbe: bool, mbc: dataclasses.RGBColor, mbo: int,
+            rf_family: str, rf_style: str, rfs: int, rfc: dataclasses.RGBColor, rfo: int, rse: bool,
+            rsc: dataclasses.RGBColor, rso: int, rsr, rbe: bool, rbc: dataclasses.RGBColor, rbo: int) \
+        -> Optional[List[np.ndarray]]:
+    """
+    Processes the images and JSON data to generate the listicle images.
+    :param image_files: The list of images to process. This is a gradio File.
+    :param json_data: The JSON data to process.
+    :param nf_family: The font family for the name.
+    :param nf_style: The font style for the name.
+    :param nfs: The font size for the name.
+    :param nfc: The font color for the name.
+    :param nfo: The font opacity for the name.
+    :param nse: Whether to show the shadow for the name.
+    :param nsc: The shadow color for the name.
+    :param nso: The shadow opacity for the name.
+    :param nsr: The shadow radius for the name.
+    :param nbe: Whether to show the background for the name.
+    :param nbc: The background color for the name.
+    :param nbo: The background opacity for the name.
+    :param df_family: The font family for the description.
+    :param df_style: The font style for the description.
+    :param dfs: The font size for the description.
+    :param dfc: The font color for the description.
+    :param dfo: The font opacity for the description.
+    :param dse: Whether to show the shadow for the description.
+    :param dsc: The shadow color for the description.
+    :param dso: The shadow opacity for the description.
+    :param dsr: The shadow radius for the description.
+    :param dbe: Whether to show the background for the description.
+    :param dbc: The background color for the description.
+    :param dbo: The background opacity for the description.
+    :param mf_family: The font family for the association.
+    :param mf_style: The font style for the association.
+    :param mfs: The font size for the association.
+    :param mfc: The font color for the association.
+    :param mfo: The font opacity for the association.
+    :param mse: Whether to show the shadow for the association.
+    :param msc: The shadow color for the association.
+    :param mso: The shadow opacity for the association.
+    :param msr: The shadow radius for the association.
+    :param mbe: Whether to show the background for the association.
+    :param mbc: The background color for the association.
+    :param mbo: The background opacity for the association.
+    :param rf_family: The font family for the rating.
+    :param rf_style: The font style for the rating.
+    :param rfs: The font size for the rating.
+    :param rfc: The font color for the rating.
+    :param rfo: The font opacity for the rating.
+    :param rse: Whether to show the shadow for the rating.
+    :param rsc: The shadow color for the rating.
+    :param rso: The shadow opacity for the rating.
+    :param rsr: The shadow radius for the rating.
+    :param rbe: Whether to show the background for the rating.
+    :param rbc: The background color for the rating.
+    :param rbo: The background opacity for the rating.
+    :return: The list of processed images as numpy arrays. If there was an error, returns None.
+    """
     if not json_data:
         print("No JSON file uploaded.")
-        return
+        return None
     if not image_files:
         print("No images uploaded.")
-        return
+        return None
 
     font_families = font_manager.get_fonts()
     nff = font_families[nf_family][nf_style]
@@ -126,7 +186,8 @@ def validate_json(json_file: str) -> None:
         gr.Info("JSON is valid!")
 
 
-def send_artifacts_to_batch(listicle_images: gr.data_classes.RootModel, json_data: str) -> (list, str):
+def send_artifacts_to_batch(listicle_images: gr.data_classes.RootModel, json_data: str) \
+        -> (Optional[list], Optional[str]):
     """
     Sends the artifacts to the batch processing section.
     :param listicle_images: The list of images to send. This is a Gradio Gallery.
@@ -135,10 +196,10 @@ def send_artifacts_to_batch(listicle_images: gr.data_classes.RootModel, json_dat
     """
     if not listicle_images or len(listicle_images.root) == 0:
         gr.Warning("No images to send.")
-        return
+        return None, None
     if not json_data or len(json_data) == 0:
         gr.Warning("No JSON data to send.")
-        return
+        return None, None
     # Parse the listicle_images GalleryData to get file paths
     listicle_images = listicle_images.root
     listicle_images = [image.image.path for image in listicle_images]
@@ -163,11 +224,13 @@ def save_artifacts(listicle_images: gr.data_classes.RootModel, image_type: gr.Dr
     # Save the JSON data
     if save_dir is not None and save_dir != "":
         json_filepath = os.path.join(save_dir, "data.json")
-        with open(json_filepath, "w") as file:
+        with open(json_filepath, "w", encoding="utf-8") as file:
             json_data = json.loads(json_data)
             json.dump(json_data, file, indent=4)
 
         gr.Info(f"Saved generated artifacts to {save_dir}.")
+
+    return None
 
 
 def generate_listicle(api_key: str, api_text_model: str, api_image_model: str, number_of_items: int, topic: str,
@@ -226,8 +289,7 @@ def generate_listicle(api_key: str, api_text_model: str, api_image_model: str, n
         message = (f"Format the listicle into JSON. For the items, store as a list named 'items' with the content "
                    f"format: {json_format}.")
         if rating_type is not None and rating_type != "":
-            message += (f"Include a top-level field `rating_type: <string>` with what the rating "
-                        f"represents.")
+            message += "Include a top-level field `rating_type: <string>` with what the rating represents."
 
         listicle_json = chatgpt_api.get_chat_response(openai, json_model, role, prompt=message,
                                                       context=listicle_json_context, as_json=True)

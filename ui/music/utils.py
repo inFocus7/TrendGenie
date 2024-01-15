@@ -11,11 +11,9 @@ import cv2
 from moviepy.editor import AudioFileClip
 import numpy as np
 import librosa
-from utils import font_manager
-import utils.image as image_utils
 from api import chatgpt as chatgpt_api
 from processing import image as image_processing
-from utils import progress, visualizer
+from utils import progress, visualizer, font_manager, image as image_utils, dataclasses
 
 
 def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]], np.ndarray):
@@ -50,15 +48,15 @@ def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]]
 def create_music_video(
         image_path: str, audio_path: str, fps: int,
         artist: str, artist_font_type: str, artist_font_style: str, artist_font_size: int,
-        artist_font_color: tuple[int, int, int], artist_font_opacity: int, artist_shadow_enabled: bool,
-        artist_shadow_color: tuple[int, int, int], artist_shadow_opacity: int, artist_shadow_radius: int,
-        artist_background_enabled: bool, artist_background_color: tuple[int, int, int], artist_background_opacity: int,
+        artist_font_color: dataclasses.RGBColor, artist_font_opacity: int, artist_shadow_enabled: bool,
+        artist_shadow_color: dataclasses.RGBColor, artist_shadow_opacity: int, artist_shadow_radius: int,
+        artist_background_enabled: bool, artist_background_color: dataclasses.RGBColor, artist_background_opacity: int,
         song: str, song_font_type: str, song_font_style: str, song_font_size: int,
-        song_font_color: tuple[int, int, int], song_font_opacity: int, song_shadow_enabled: bool,
-        song_shadow_color: tuple[int, int, int], song_shadow_opacity: int, song_shadow_radius: int,
-        song_background_enabled: bool, song_background_color: tuple[int, int, int], song_background_opacity: int,
-        background_color: tuple[int, int, int] = (0, 0, 0), background_opacity: int = 66,
-        generate_audio_visualizer: bool = False, audio_visualizer_color: tuple[int, int, int] =(255, 255, 255),
+        song_font_color: dataclasses.RGBColor, song_font_opacity: int, song_shadow_enabled: bool,
+        song_shadow_color: dataclasses.RGBColor, song_shadow_opacity: int, song_shadow_radius: int,
+        song_background_enabled: bool, song_background_color: dataclasses.RGBColor, song_background_opacity: int,
+        background_color: dataclasses.RGBColor = (0, 0, 0), background_opacity: int = 66,
+        generate_audio_visualizer: bool = False, audio_visualizer_color: dataclasses.RGBColor = (255, 255, 255),
         audio_visualizer_opacity: int = 100, visualizer_drawing: Optional[str] = None,
         audio_visualizer_num_rows: int = 90, audio_visualizer_num_columns: int = 65, audio_visualizer_min_size: int = 1,
         audio_visualizer_max_size: int = 7) -> Optional[str]:
@@ -342,10 +340,10 @@ def generate_cover_image(api_key: str, api_model: str, prompt: str) -> Optional[
 
 
 def process(image_path: str, artist: str, song: str,
-            af_family: str, af_style: str, afs: int, afc: tuple[int, int, int], afo: int, ase: bool,
-            asc: tuple[int, int, int], aso: int, asr: Optional[int], abe: bool, abc: tuple[int, int, int], abo: int,
-            sf_family: str, sf_style: str, sfs: int, sfc: tuple[int, int, int], sfo: int, sse: bool,
-            ssc: tuple[int, int, int], sso: int, ssr: Optional[int], sbe: bool, sbc: tuple[int, int, int], sbo: int) \
+            af_family: str, af_style: str, afs: int, afc: dataclasses.RGBColor, afo: int, ase: bool,
+            asc: dataclasses.RGBColor, aso: int, asr: Optional[int], abe: bool, abc: dataclasses.RGBColor, abo: int,
+            sf_family: str, sf_style: str, sfs: int, sfc: dataclasses.RGBColor, sfo: int, sse: bool,
+            ssc: dataclasses.RGBColor, sso: int, ssr: Optional[int], sbe: bool, sbc: dataclasses.RGBColor, sbo: int) \
         -> Optional[np.ndarray]:
     """
     Processes the image at the given path (by adding the requested text) and returns the processed image.

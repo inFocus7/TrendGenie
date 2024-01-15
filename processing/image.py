@@ -11,10 +11,10 @@ from PIL import ImageFont, ImageDraw, Image, ImageFilter
 import numpy as np
 import gradio as gr
 import cv2
-from utils import path_handler
-import utils.gradio as gru
+from utils import gradio as gru, path_handler, dataclasses
 
 IMAGE_FOLDER = "images"
+
 default_path = os.path.join(path_handler.get_default_path(), IMAGE_FOLDER)
 
 
@@ -82,17 +82,19 @@ def add_background(image_pil: Image, draw: ImageDraw, position: tuple[int, int],
     bbox = draw.textbbox((0, 0), text, font=font)
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
-    left = position[0] - padding[0]
-    top = position[1] - padding[1]
-    right = left + text_width + 2 * padding[0]
-    bottom = top + text_height + 2 * padding[1]
+    rect_pos = dataclasses.FourEdges(left=position[0] - padding[0],
+                                     top=position[1] - padding[1],
+                                     right=(position[0] - padding[0]) + text_width + 2 * padding[0],
+                                     bottom=(position[1] - padding[1]) + text_height + 2 * padding[1])
 
     rect_img = Image.new('RGBA', image_pil.size, (0, 0, 0, 0))
     rect_draw = ImageDraw.Draw(rect_img)
-    rect_draw.rounded_rectangle([left, top, right, bottom], fill=fill_color, radius=border_radius)
+    rect_draw.rounded_rectangle([rect_pos.left, rect_pos.top, rect_pos.right, rect_pos.bottom], fill=fill_color,
+                                radius=border_radius)
     image_pil.paste(rect_img, (0, 0), rect_img)
 
-    return (left + padding[0], top + padding[1]), (right - left, bottom - top)
+    return ((rect_pos.left + padding[0], rect_pos.top + padding[1]),
+            (rect_pos.right - rect_pos.left, rect_pos.bottom - rect_pos.top))
 
 
 def add_blurred_shadow(image_pil: Image, text: str, position: tuple[float, float], font: ImageFont,
@@ -263,7 +265,6 @@ def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[i
 
     lines = wrapped_text.split('\n')
 
-    x_pos, y_pos = position
     y_offset = 0
     max_line_width = 0  # Keep track of the widest line
     total_height = 0  # Accumulate total height of text block
@@ -274,10 +275,10 @@ def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[i
         max_line_width = max(max_line_width, line_width)
         total_height += line_height
 
-        text_x = x_pos  # Adjusted to use numpy width
+        text_x = position[0]
         if x_center:
             text_x = (img_width - line_width) / 2
-        line_y = y_pos + y_offset
+        line_y = position[1] + y_offset
         y_offset += (line_height + 6)
 
         if show_background:

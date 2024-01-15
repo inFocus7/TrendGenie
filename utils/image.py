@@ -1,7 +1,8 @@
 """
 This file contains functions for image processing.
 """
-from typing import Tuple, Union
+from typing import Tuple
+from utils import dataclasses
 
 
 def get_alpha_from_opacity(opacity: int) -> int:
@@ -14,7 +15,7 @@ def get_alpha_from_opacity(opacity: int) -> int:
     return int(opacity * 255 / 100)
 
 
-def get_rgba(color: Union[str, Tuple[int, int, int]], opacity: int) -> Tuple[int, int, int, int]:
+def get_rgba(color: dataclasses.RGBColor, opacity: int) -> Tuple[int, int, int, int]:
     """
      Gets the RGBA value for a given color and opacity.
      :param color: The color to use. Either a hex string or a tuple of RGB values.
@@ -29,7 +30,7 @@ def get_rgba(color: Union[str, Tuple[int, int, int]], opacity: int) -> Tuple[int
     return color[0], color[1], color[2], get_alpha_from_opacity(opacity)
 
 
-def get_bgra(color: Union[str, Tuple[int, int, int]], opacity: int) -> Tuple[int, int, int, int]:
+def get_bgra(color: dataclasses.RGBColor, opacity: int) -> Tuple[int, int, int, int]:
     """
      Gets the BGRA value for a given color and opacity.
      :param color: The color to use. Either a hex string or a tuple of BGR values.

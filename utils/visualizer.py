@@ -67,7 +67,7 @@ class Visualizer:
             upper_bound = log_freqs[x + 1] if x < dot_count_x - 1 else end_freq + 1
             band_freqs = [freq for freq in freq_keys if lower_bound <= freq < upper_bound]
             if not band_freqs:
-                closest_freq = min(freq_keys, key=lambda f: abs(f - lower_bound))
+                closest_freq = min(freq_keys, key=lambda f, lb=lower_bound: abs(f - lb))
                 band_freqs = [closest_freq]
 
             band_loudness = [frequency_data[freq] for freq in band_freqs]
