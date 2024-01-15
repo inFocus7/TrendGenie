@@ -73,9 +73,8 @@ def render_process_cover() -> (gr.Button, gr.Image, gr.Image):
     with gr.Column():
         gr.Markdown("## Input")
         with gr.Group():
-            # Sadly we can't use RGBA here due to JPEG images not supporting alpha and breaking
-            input_image = gr.Image(sources=["upload"], label="Cover Image", type="filepath", show_download_button=False,
-                                   scale=2, elem_classes=["single-image-input"], image_mode="RGB")
+            input_image = gr.Image(sources=["upload"], label="Cover Image (png)", type="filepath", show_download_button=False,
+                                   scale=2, elem_classes=["single-image-input"], image_mode="RGBA")
 
         with gr.Row(equal_height=False):
             with gr.Group():
@@ -113,10 +112,8 @@ def render_music_video_creation() -> gr.Image:
     """
     gr.Markdown("## Input")
     with gr.Row(equal_height=False):
-        # Sadly we can't use RGBA here due to JPEG images not supporting alpha and breaking. It would be nice if Gradio
-        # supported a way to convert to PNG before processing, but it doesn't seem to.
-        cover_image = gr.Image(label="Cover Image", type="filepath", sources=["upload"],
-                               show_share_button=False, show_download_button=False, scale=2, image_mode="RGB")
+        cover_image = gr.Image(label="Cover Image (png)", type="filepath", sources=["upload"],
+                               show_share_button=False, show_download_button=False, scale=2, image_mode="RGBA")
         audio_filepath = gr.File(label="Audio", file_types=["audio"], scale=1, height=100)
     with gr.Column():
         background_color, background_opacity = gru.render_color_opacity_picker(default_name_label="Background")

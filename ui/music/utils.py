@@ -1,36 +1,29 @@
-"""
-This file contains the functions and utilities used to generate the music video and cover image.
-"""
-import math
-from typing import Dict, List, Optional
-from PIL import Image, ImageFilter, ImageDraw
-from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip, concatenate_videoclips
-import multiprocessing
-from utils import font_manager, image as image_utils
+import os
+import subprocess
+import re
+import time
+import cv2
+from moviepy.editor import AudioFileClip
+import utils.font_manager as font_manager
+import utils.image as image_utils
 import numpy as np
 import tempfile
-from api import chatgpt as chatgpt_api
-from processing import image as image_processing
+import api.chatgpt as chatgpt_api
+import processing.image as image_processing
 import librosa
+from utils import progress, visualizer
+import cProfile
 
 
-def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]], np.ndarray):
-    """
-    Analyzes the audio file at the given path and returns the frequency loudness and times relating to the frequency
-    loudness.
-    :param audio_path: The path to the audio file to analyze.
-    :param target_fps: The target frames per second for the audio visualizer. This is used to downsample the audio so
-      that it aligns with the video.
-    :return: A tuple containing the frequency loudness and times relating to the frequency loudness.
-    """
-    y, sr = librosa.load(audio_path, sr=None)
+def analyze_audio(audio, target_fps):
+    y, sr = librosa.load(audio, sr=None)
     D = librosa.stft(y)
     D_db = librosa.amplitude_to_db(np.abs(D), ref=np.max)
 
     frequencies = librosa.fft_frequencies(sr=sr)
     times = librosa.frames_to_time(np.arange(D_db.shape[1]), sr=sr)
 
-    audio_clip = AudioFileClip(audio_path)
+    audio_clip = AudioFileClip(audio)
     audio_frames_per_video_frame = len(times) / (target_fps * audio_clip.duration)
 
     sample_indices = np.arange(0, len(times), audio_frames_per_video_frame)
@@ -41,102 +34,6 @@ def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]]
     downsampled_frequency_loudness = [dict(zip(frequencies, D_db[:, i])) for i in sample_indices]
 
     return downsampled_frequency_loudness, downsampled_times
-
-
-CACHED_VISUALIZER_DOT_POSITIONS = None
-CACHED_VISUALIZER_BACKGROUND = None
-
-
-def draw_visualizer(canvas: Image, frequency_data: Dict[float, float], base_size: int = 1, max_size: int = 7,
-                    color: tuple[int, int, int, int] = (255, 255, 255, 255), dot_count: tuple[int, int] = (90, 65),
-                    alias_scale: int = 1, custom_drawing: Optional[Image] = None) -> None:
-    """
-    Draws a visualizer on the given canvas frame using the frequency data.
-    :param canvas: The canvas to draw the visualizer on.
-    :param frequency_data: The frequency data to use for drawing the visualizer.
-    :param base_size: The base size of the dots (silent).
-    :param max_size: The maximum size of the dots (loudest portion).
-    :param color: The color of the dots.
-    :param dot_count: The number of dots to use in the visualizer. The first value is the number of rows, and the second
-        value is the number of columns.
-    :param alias_scale: The alias scale to use for the visualizer. This is used to increase the resolution of the
-        visualizer.
-    :param custom_drawing: The custom drawing to use for the visualizer. This is used to replace the dots with a custom
-        image.
-    :return:
-    """
-    global CACHED_VISUALIZER_DOT_POSITIONS, CACHED_VISUALIZER_BACKGROUND
-    width, height = canvas.size[0] * alias_scale, canvas.size[1] * alias_scale
-
-    if CACHED_VISUALIZER_BACKGROUND is None:
-        CACHED_VISUALIZER_BACKGROUND = Image.new("RGBA", (width, height))
-    large_canvas = CACHED_VISUALIZER_BACKGROUND.copy()
-    large_draw = ImageDraw.Draw(large_canvas)
-
-    # In case the dot count changes, recalculate the dot positions
-    if CACHED_VISUALIZER_DOT_POSITIONS is None or len(CACHED_VISUALIZER_DOT_POSITIONS) != dot_count[0] * dot_count[1]:
-        # Calculate and store dot positions
-        x_positions = (width / dot_count[0]) * np.arange(dot_count[0]) + (width / dot_count[0] / 2)
-        y_positions = (height / dot_count[1]) * np.arange(dot_count[1]) + (height / dot_count[1] / 2)
-        grid_x, grid_y = np.meshgrid(x_positions, y_positions)
-        CACHED_VISUALIZER_DOT_POSITIONS = [(grid_x[y, x], grid_y[y, x]) for x in range(dot_count[0]) for y in
-                                           range(dot_count[1])]
-
-    # Precompute log frequencies
-    freq_keys = np.array(list(frequency_data.keys()))
-    start_freq = freq_keys[freq_keys > 0][0] if freq_keys[freq_keys > 0].size > 0 else 1.0
-    end_freq = freq_keys[-1]
-    log_freqs = np.logspace(np.log10(start_freq), np.log10(end_freq), dot_count[0])
-
-    # Find the maximum and minimum loudness values, ignoring -80 dB
-    freq_bands = np.array([frequency_data[key] for key in freq_keys if key > 0])  # Ignore 0 Hz
-    max_loudness = np.max(freq_bands)
-    filtered_loudness = freq_bands[freq_bands > -80]
-    min_loudness = np.min(filtered_loudness) if filtered_loudness.size > 0 else -80
-
-    # Precompute loudness values
-    loudness_values = {}
-    for x in range(dot_count[0]):
-        lower_bound = log_freqs[x]
-        upper_bound = log_freqs[x + 1] if x < dot_count[0] - 1 else end_freq + 1
-        band_freqs = [freq for freq in freq_keys if lower_bound <= freq < upper_bound]
-        if not band_freqs:
-            closest_freq = min(freq_keys, key=lambda f: abs(f - lower_bound))
-            band_freqs = [closest_freq]
-
-        band_loudness = [frequency_data[freq] for freq in band_freqs]
-        avg_loudness = np.mean(band_loudness) if band_loudness else -80
-        loudness_values[x] = avg_loudness
-
-    cached_dot_sizes = {}
-    for i, (pos_x, pos_y) in enumerate(CACHED_VISUALIZER_DOT_POSITIONS):
-        column = i // dot_count[1]  # Ensure the correct column is computed
-
-        if column not in cached_dot_sizes:
-            avg_loudness = loudness_values[column]
-            # avg_loudness = loudness_values.get(column, -80) < if anything breaks, do this
-
-            # Scale the loudness to the dot size
-            scaled_loudness = (avg_loudness - min_loudness) / (max_loudness - min_loudness) \
-                if max_loudness != min_loudness else 0
-            dot_size = base_size + scaled_loudness * (max_size - base_size)
-            dot_size = min(max(dot_size, base_size), max_size) * alias_scale
-
-            cached_dot_sizes[column] = dot_size
-        else:
-            dot_size = cached_dot_sizes[column]
-
-        if custom_drawing is not None:
-            custom_drawing = custom_drawing.resize((int(dot_size), int(dot_size)), Image.LANCZOS)
-            large_canvas.paste(custom_drawing,
-                               (int(pos_x - dot_size / 2), int(pos_y - dot_size / 2)),
-                               custom_drawing)
-        else:
-            large_draw.ellipse([
-                (pos_x - dot_size / 2, pos_y - dot_size / 2), (pos_x + dot_size / 2, pos_y + dot_size / 2)
-            ], fill=color, outline=color)
-
-    canvas.paste(large_canvas.resize(canvas.size, Image.LANCZOS))
 
 
 def create_music_video(
@@ -161,65 +58,92 @@ def create_music_video(
     # Could probably expand to 4k, but unnecessary for this type of music video
     # Maybe in a future iteration it could be worth it
     width, height = 1920, 1080
-    canvas = Image.new("RGBA", (width, height))
 
     # Set up cover
-    cover = Image.open(image)
-    if cover.mode != 'RGBA':
-        cover = cover.convert('RGBA')
-    cover.thumbnail((math.floor(width * (2 / 3)), math.floor(height * (2 / 3))))
-    cover_width, cover_height = cover.size
-    cover_pos = ((width - cover_width) // 2, (height - cover_height) // 2)
-    canvas.paste(cover, cover_pos, cover)
+    cover = cv2.imread(image, cv2.IMREAD_UNCHANGED)
+    if cover.shape[2] == 3:
+        cover = cv2.cvtColor(cover, cv2.COLOR_BGR2RGBA)
+    else:
+        cover = cv2.cvtColor(cover, cv2.COLOR_BGRA2RGBA)
 
-    # Load Audio Clip
+    # Create canvas with 4 channels (RGBA)
+    canvas = np.zeros((height, width, 4), dtype=np.uint8)
+
+    # Calculate dimensions for resizing the cover to fit within the canvas while maintaining its aspect ratio
+    cover_width, cover_height = cover.shape[1], cover.shape[0]
+    canvas_width, canvas_height = width, height
+    resize_factor = min(canvas_width / cover_width, canvas_height / cover_height)
+    resize_factor *= (7 / 10)
+    new_width = int(cover_width * resize_factor)
+    new_height = int(cover_height * resize_factor)
+
+    # Calculate cover position to center it on the canvas
+    cover_pos = ((canvas_width - new_width) // 2, (canvas_height - new_height) // 2)
+    cover = cv2.resize(cover, (new_width, new_height))
+
+    canvas[cover_pos[1]:cover_pos[1] + new_height, cover_pos[0]:cover_pos[0] + new_width] = cover
+
+    # Load song / audio
     audio_clip = AudioFileClip(audio)
 
     # Add video background
-    background = Image.open(image).resize((width, height)).filter(ImageFilter.GaussianBlur(15))
-    background_color_overlay = image_utils.get_rgba(background_color, background_opacity)
-    overlay = Image.new("RGBA", (width, height), background_color_overlay)
-    background.paste(overlay, (0, 0), overlay)
-    background_np = np.array(background)
-    background_clip = ImageClip(background_np).set_duration(audio_clip.duration)
+    background = cv2.imread(image)
+    background = cv2.resize(background, (width, height))
+    background = cv2.GaussianBlur(background, (49, 49), 0)
+    if background.shape[2] == 3:
+        background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
+    background_color_overlay = image_utils.get_bgra(background_color, background_opacity)
+    overlay = np.full((height, width, 4), background_color_overlay, dtype=np.uint8)
+    alpha_overlay = overlay[:, :, 3] / 255.0
+    alpha_background = background[:, :, 3] / 255.0
+    for c in range(0, 3):
+        background[:, :, c] = (alpha_overlay * overlay[:, :, c] +
+                               alpha_background * (1 - alpha_overlay) * background[:, :, c])
+    background[:, :, 3] = (alpha_overlay + alpha_background * (1 - alpha_overlay)) * 255
+    background_bgr = cv2.cvtColor(background, cv2.COLOR_BGRA2BGR)
+    tmp_background_image_path = tempfile.mktemp(suffix=".png")
+    cv2.imwrite(tmp_background_image_path, background_bgr)
 
-    audio_visualizer_color_opacity = image_utils.get_rgba(audio_visualizer_color, audio_visualizer_opacity)
+    audio_visualizer_color_and_opacity = image_utils.get_rgba(audio_visualizer_color, audio_visualizer_opacity)
 
     # Add audio visualizer
     custom_drawing = None
     if visualizer_drawing is not None and visualizer_drawing != "":
-        custom_drawing = Image.open(visualizer_drawing)
-        if custom_drawing.mode != 'RGBA':
-            custom_drawing = custom_drawing.convert('RGBA')
+        custom_drawing = cv2.imread(visualizer_drawing, cv2.IMREAD_UNCHANGED)
+        if custom_drawing.shape[2] == 3:
+            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2RGBA)
+        else:
+            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGRA2RGBA)
 
-    visualizer_clip = []
     if generate_audio_visualizer:
+        print("Generating audio visualizer...")
         frequency_loudness, times = analyze_audio(audio, fps)
-        audio_frame_duration = 1.0 / fps
-        frame_cache = Image.new("RGBA", (width, height))
+        frame_cache = np.zeros((height, width, 4), dtype=np.uint8)
+
+        total_iterations = len(times)
+        start_time = time.time()
+        vis = visualizer.Visualizer(width=width, height=height, base_size=audio_visualizer_min_size,
+                                    max_size=audio_visualizer_max_size, color=audio_visualizer_color_and_opacity,
+                                    dot_count=(audio_visualizer_num_rows, audio_visualizer_num_columns))
+        vis.initialize_static_values()
+        temp_visualizer_images_dir = tempfile.mkdtemp()
+        os.makedirs(temp_visualizer_images_dir, exist_ok=True)
         for i, time_point in enumerate(times):
             if time_point > audio_clip.duration:
                 break
             frame = frame_cache.copy()
-            draw_visualizer(frame, frequency_loudness[i], color=audio_visualizer_color_opacity,
-                            custom_drawing=custom_drawing, base_size=audio_visualizer_min_size,
-                            max_size=audio_visualizer_max_size, dot_count=(audio_visualizer_num_rows,
-                                                                           audio_visualizer_num_columns))
+            vis.draw_visualizer(frame, frequency_loudness[i], custom_drawing=custom_drawing)
             frame_np = np.array(frame)
-            frame_clip = ImageClip(frame_np).set_duration(audio_frame_duration)
-            # If I want to add some blending effect, i'll have to do some mask/function here and blend this frame with
-            # the equivalent background frame.
-            visualizer_clip.append(frame_clip)
+            frame_np = cv2.cvtColor(frame_np, cv2.COLOR_RGBA2BGRA)
+            frame_filename = f'{temp_visualizer_images_dir}/frame_{i:05d}.png'
+            cv2.imwrite(frame_filename, frame_np)
 
-        visualizer_clip = concatenate_videoclips(visualizer_clip, method="compose")
-
-    # Place the cover on top of the background
-    np_canvas = np.array(canvas)
-    canvas_clip = ImageClip(np_canvas).set_duration(audio_clip.duration)
+            progress.print_progress_bar(i, total_iterations, start_time=start_time)
+        progress.print_progress_bar(total_iterations, total_iterations, end='\n', start_time=start_time)
 
     # Add text
     font_families = font_manager.get_fonts()
-    text_canvas = Image.new("RGBA", (width, height))
+    text_canvas = np.zeros((height, width, 4), dtype=np.uint8)
 
     song_pos = (20, int(height * 0.925))
     text_canvas, (_, song_height) = image_processing.add_text(text_canvas, song, song_pos,
@@ -236,7 +160,7 @@ def create_music_video(
                                                                   song_background_color,
                                                                   song_background_opacity))
     artist_pos = (song_pos[0], song_pos[1] - song_height - 5)
-    text_canvas, (_, artist_height) = image_processing.add_text(text_canvas, artist, artist_pos,
+    text_canvas, (_, _) = image_processing.add_text(text_canvas, artist, artist_pos,
                                                                 font_families[artist_font_type][artist_font_style],
                                                                 font_size=artist_font_size,
                                                                 font_color=image_utils.get_rgba(artist_font_color,
@@ -244,53 +168,107 @@ def create_music_video(
                                                                 show_shadow=artist_shadow_enabled,
                                                                 shadow_radius=artist_shadow_radius,
                                                                 shadow_color=image_utils.get_rgba(artist_shadow_color,
-                                                                                                  artist_shadow_opacity
-                                                                                                  ),
+                                                                                                  artist_shadow_opacity),
                                                                 show_background=artist_background_enabled,
                                                                 background_color=image_utils.get_rgba(
-                                                                    artist_background_color,
-                                                                    artist_background_opacity)
-                                                                )
+                                                                    artist_background_color, artist_background_opacity))
 
     text_np = np.array(text_canvas)
-    text_clip = ImageClip(text_np).set_duration(audio_clip.duration)
+    np_canvas = np.array(canvas)
+    # Normalize the alpha channels
+    alpha_text = text_np[:, :, 3] / 255.0
+    alpha_canvas = np_canvas[:, :, 3] / 255.0
+    alpha_final = alpha_text + alpha_canvas * (1 - alpha_text)
+
+    canvas_final = np.zeros_like(np_canvas)
+    # alpha blend
+    for c in range(3): # Loop over color (non-alpha) channels
+        canvas_final[:, :, c] = (alpha_text * text_np[:, :, c] + alpha_canvas * (1 - alpha_text) *
+                                 np_canvas[:, :, c]) / alpha_final
+    canvas_final[:, :, 3] = alpha_final * 255
+    canvas_final[:, :, :3][alpha_final == 0] = 0
+
+    temp_canvas_image_path = tempfile.mktemp(suffix=".png")
+    # Convert to BGR for OpenCV
+    canvas_final = cv2.cvtColor(canvas_final, cv2.COLOR_RGBA2BGRA)
+    cv2.imwrite(temp_canvas_image_path, canvas_final)
+
+    temp_final_video_path = tempfile.mktemp(suffix=".mp4")
+
+    # set up the background video commands
+    ffmpeg_commands = [
+        "ffmpeg", "-y",
+        "-loop", "1",
+        "-i", tmp_background_image_path,
+    ]
 
     if generate_audio_visualizer:
-        final_clip = CompositeVideoClip([background_clip, visualizer_clip, canvas_clip, text_clip])
+        ffmpeg_commands.extend([
+            "-framerate", str(fps),
+            "-i", f'{temp_visualizer_images_dir}/frame_%05d.png',
+        ])
+        filter_complex = "[0][1]overlay=format=auto[bg];[bg][2]overlay=format=auto"
+        audio_input_map = "3:a"
     else:
-        final_clip = CompositeVideoClip([background_clip, canvas_clip, text_clip])
+        filter_complex = "[0][1]overlay=format=auto"
+        audio_input_map = "2:a"
 
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as temp_video_file:
-        temp_video_path = temp_video_file.name
+    ffmpeg_commands.extend([
+        "-framerate", str(fps),
+        "-i", temp_canvas_image_path,
+        "-i", audio,
+        "-filter_complex", filter_complex,
+        "-map", audio_input_map,
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-strict", "experimental",
+        "-t", str(audio_clip.duration),
+        "-hide_banner",
+        "-framerate", str(fps),
+        '-pix_fmt', 'yuv420p',
+        temp_final_video_path
+    ])
+    print("Generating final video...")
+    ffmpeg_process = subprocess.Popen(ffmpeg_commands, stderr=subprocess.PIPE, text=True)
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
-        temp_audio_path = temp_audio_file.name
+    duration_regex = re.compile(r"Duration: (\d\d):(\d\d):(\d\d)\.\d\d")
+    time_regex = re.compile(r"time=(\d\d):(\d\d):(\d\d)\.\d\d")
+    total_duration_in_seconds = 0
 
-    final_clip = final_clip.set_audio(audio_clip)
+    ffmpeg_start_time = time.time()
+    while True:
+        line = ffmpeg_process.stderr.readline()
+        if not line:
+            break
 
-    threads = multiprocessing.cpu_count() // 2
-    final_clip.write_videofile(
-        temp_video_path,
-        codec="libx264",
-        fps=fps,
-        temp_audiofile=temp_audio_path,
-        threads=threads,
-        preset="medium",
-        verbose=False,
-        logger=None,
-    )
+        # Extract total duration of the video
+        duration_match = duration_regex.search(line)
+        if duration_match:
+            hours, minutes, seconds = map(int, duration_match.groups())
+            total_duration_in_seconds = hours * 3600 + minutes * 60 + seconds
 
-    return temp_video_path
+        # Extract current time of encoding
+        time_match = time_regex.search(line)
+        if time_match and total_duration_in_seconds > 0:
+            hours, minutes, seconds = map(int, time_match.groups())
+            current_time = hours * 3600 + minutes * 60 + seconds
+            progress.print_progress_bar(current_time, total_duration_in_seconds, start_time=ffmpeg_start_time)
+
+    ffmpeg_process.wait()
+    if ffmpeg_process.returncode != 0:
+        raise subprocess.CalledProcessError(ffmpeg_process.returncode, ffmpeg_commands)
+    progress.print_progress_bar(100, 100, end='\n', start_time=ffmpeg_start_time)
+    print("Done generating final video!\n")
+    # clean up the original frames
+    if generate_audio_visualizer:
+        for file in os.listdir(temp_visualizer_images_dir):
+            os.remove(os.path.join(temp_visualizer_images_dir, file))
+        os.rmdir(temp_visualizer_images_dir)
+
+    return temp_final_video_path
 
 
-def generate_cover_image(api_key: str, api_model: str, prompt: str) -> Optional[str]:
-    """
-    Generates a cover image using the OpenAI API based on a given prompt and specified parameters.
-    :param api_key: The API key to use for the OpenAI API.
-    :param api_model: The model to use for image generation (e.g., 'dall-e-3').
-    :param prompt: The text prompt based on which the image is generated.
-    :return: The URL of the generated image, or None if no image was generated or if there was an error.
-    """
+def generate_cover_image(api_key, api_model, prompt):
     client = chatgpt_api.get_openai_client(api_key)
     image_url = chatgpt_api.get_image_response(client, api_model, prompt, portrait=False)
     if image_url is None or image_url == "":

@@ -36,9 +36,10 @@
 }
 
 .video-output {
-    .icon-buttons {
-        display: none;
-    }
+    /* This disables the video download button, but removing the disabling so people without a mapping can download */
+    /*.icon-buttons {*/
+    /*    display: none;*/
+    /*}*/
 }
 
 .single-image-input {
