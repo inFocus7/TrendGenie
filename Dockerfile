@@ -14,6 +14,14 @@ RUN if [ "$TARGETARCH" = "arm64" ] ; then \
       ln -s /usr/lib/x86_64-linux-gnu/lib*.so* /usr/lib/unified/; \
     fi
 
+# Copy ffmpeg and its dependencies.
+RUN mkdir -p /usr/lib/unified/ffmpeg-deps
+RUN cp $(which ffmpeg) $(which ffprobe) /usr/lib/unified/ffmpeg-deps
+RUN ldd $(which ffmpeg) | tr -s '[:space:]' '\n' | grep '^/' | \
+    xargs -I % sh -c 'cp % /usr/lib/unified/ffmpeg-deps' \
+RUN ldd $(which ffprobe) | tr -s '[:space:]' '\n' | grep '^/' | \
+    xargs -I % sh -c 'cp % /usr/lib/unified/ffmpeg-deps'
+
 # Install dependencies. This is done in a separate step to take advantage of Docker's caching, so that we don't have to
 # reinstall dependencies every time we change the code.
 FROM builder as builder-venv
@@ -22,6 +30,7 @@ RUN /venv/bin/pip install --disable-pip-version-check -r requirements.txt
 
 FROM gcr.io/distroless/python3-debian12
 # Copy over dependencies needed needed for Pillow to work.
+COPY --from=builder /usr/lib/unified/ffmpeg-deps /usr/local/bin/
 COPY --from=builder /usr/lib/unified/libjpeg.so* /usr/lib/
 COPY --from=builder /usr/lib/unified/libz.so* /usr/lib/
 COPY --from=builder /usr/lib/unified/libfreetype.so* /usr/lib/
@@ -42,6 +51,7 @@ COPY --from=builder /usr/lib/unified/libmp3lame.so* /usr/lib/
 
 COPY . /app
 ENV PYTHONPATH=/venv/lib/python3.11/site-packages
+ENV LD_LIBRARY_PATH=/usr/local/bin
 COPY --from=builder-venv /venv /venv
 WORKDIR /app
 CMD ["main.py"]
