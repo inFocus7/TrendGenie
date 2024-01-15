@@ -1,2 +1,5 @@
 [MAIN]
 max-line-length=120
+
+[TYPECHECK]
+generated-members=gradio.components.dropdown.*,gradio.components.button.*,cv2.*

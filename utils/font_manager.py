@@ -3,12 +3,12 @@ This module manages the fonts and the inflect engine.
 """
 import glob
 import os
-from typing import Optional, Dict, TypeAlias
+from typing import Optional, Dict
 from fontTools.ttLib import TTFont
 import inflect
 from utils import path_handler
 
-NestedDict: TypeAlias = Dict[str, Dict[str, str]]
+NestedDict = Dict[str, Dict[str, str]]
 
 FONT_FAMILIES: Optional[NestedDict] = None
 P: Optional[inflect.engine] = None
