@@ -73,9 +73,20 @@ class Visualizer:
             dot_size = int(dot_size)
             center = (int(pos_x), int(pos_y))
             if custom_drawing is not None:
-                pass
-                # custom_drawing = custom_drawing.resize((int(dot_size), int(dot_size)), Image.LANCZOS)
-                # canvas.paste(custom_drawing, (int(pos_x - dot_size / 2), int(pos_y - dot_size / 2)),
-                #                    custom_drawing)
+                # There needs to be extra logic to handle the custom drawing does not go out of bounds and break the
+                # array. This is possible when drawing the dots, but i believe it needs to be _very_ large to do so,
+                # and it's not worth the extra computation to check for it in favor of speed.
+                center_x, center_y = int(pos_x), int(pos_y)
+                half_dot_size = dot_size // 2
+
+                # get bounding box
+                start_x, end_x = max(center_x - half_dot_size, 0), min(center_x + half_dot_size, canvas.shape[1])
+                start_y, end_y = max(center_y - half_dot_size, 0), min(center_y + half_dot_size, canvas.shape[0])
+
+                # Check if the bounding box is valid
+                if start_x < end_x and start_y < end_y:
+                    resized_custom_drawing = cv2.resize(custom_drawing, (end_x - start_x, end_y - start_y),
+                                                        interpolation=cv2.INTER_LANCZOS4)
+                    canvas[start_y:end_y, start_x:end_x] = resized_custom_drawing
             else:
                 cv2.circle(canvas, center, dot_size // 2, self.color, -1)

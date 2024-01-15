@@ -112,6 +112,8 @@ def create_music_video(
         custom_drawing = cv2.imread(visualizer_drawing, cv2.IMREAD_UNCHANGED)
         if custom_drawing.shape[2] == 3:
             custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2RGBA)
+        else:
+            custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGRA2RGBA)
 
     if generate_audio_visualizer:
         print("Generating audio visualizer...")
