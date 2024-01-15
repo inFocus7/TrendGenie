@@ -5,18 +5,17 @@ import os
 import subprocess
 import re
 import time
-import cv2
+import tempfile
 from typing import List, Dict, Optional
+import cv2
 from moviepy.editor import AudioFileClip
+import numpy as np
+import librosa
 from utils import font_manager
 import utils.image as image_utils
-import numpy as np
-import tempfile
 from api import chatgpt as chatgpt_api
 from processing import image as image_processing
-import librosa
 from utils import progress, visualizer
-import cProfile
 
 
 def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]], np.ndarray):

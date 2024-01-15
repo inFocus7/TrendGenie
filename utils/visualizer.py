@@ -1,8 +1,16 @@
+"""
+This module defines the Visualizer class, which is used to draw the visualizer on the canvas.
+"""
+from typing import Dict, Optional
 import numpy as np
 import cv2
 
 
 class Visualizer:
+    """
+    This class is used to draw the visualizer on the canvas.
+    Will be replaced with a more general solution in the future to allow for more customization.
+    """
     def __init__(self, base_size, max_size, color, dot_count, width, height):
         self.base_size = base_size
         self.max_size = max_size
@@ -13,7 +21,11 @@ class Visualizer:
         self.cached_dot_positions = None
         self.cached_resized_drawing = {}
 
-    def initialize_static_values(self):
+    def initialize_static_values(self: "Visualizer") -> None:
+        """
+        Initializes static values for the visualizer.
+        :return: None.
+        """
         # Calculate and store dot positions
         x_positions = (self.width / self.dot_count[0]) * np.arange(self.dot_count[0]) + (
                 self.width / self.dot_count[0] / 2)
@@ -23,7 +35,15 @@ class Visualizer:
         self.cached_dot_positions = [(grid_x[y, x], grid_y[y, x]) for x in range(self.dot_count[0]) for y in
                                      range(self.dot_count[1])]
 
-    def draw_visualizer(self, canvas, frequency_data, custom_drawing=None):
+    def draw_visualizer(self: "Visualizer", canvas: np.ndarray, frequency_data: Dict[float, float],
+                        custom_drawing: Optional[np.ndarray] = None) -> None:
+        """
+        Draws the visualizer on the canvas (a single frame).
+        :param canvas: The canvas to draw on.
+        :param frequency_data: The frequency data to use for drawing which correlates to the loudness + frequency.
+        :param custom_drawing: A custom drawing to use instead of the default circle.
+        :return: None.
+        """
         # Calculate and store dot positions
         dot_count_x = self.dot_count[0]
         dot_count_y = self.dot_count[1]

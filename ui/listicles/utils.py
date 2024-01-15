@@ -1,7 +1,11 @@
-import gradio as gr
-import json
-import processing.image as image_processing
+"""
+This file contains the functions that are used by the Gradio UI to generate listicles.
+"""
 import os
+import json
+from typing import Optional
+import gradio as gr
+import processing.image as image_processing
 from utils import font_manager, image as image_utils
 import api.chatgpt as chatgpt_api
 
@@ -93,7 +97,12 @@ def process(image_files, json_data,
     return images
 
 
-def validate_json(json_file):
+def validate_json(json_file: str) -> None:
+    """
+    Validates the JSON file to make sure it has the required fields.
+    :param json_file: The JSON file to validate.
+    :return: None
+    """
     if not json_file or len(json_file) == 0:
         gr.Warning("No JSON in the code block.")
         return
@@ -117,7 +126,13 @@ def validate_json(json_file):
         gr.Info("JSON is valid!")
 
 
-def send_artifacts_to_batch(listicle_images, json_data):
+def send_artifacts_to_batch(listicle_images: gr.data_classes.RootModel, json_data: str) -> (list, str):
+    """
+    Sends the artifacts to the batch processing section.
+    :param listicle_images: The list of images to send. This is a Gradio Gallery.
+    :param json_data: The JSON data to send.
+    :return: The list of images and the JSON data sent.
+    """
     if not listicle_images or len(listicle_images.root) == 0:
         gr.Warning("No images to send.")
         return
@@ -130,10 +145,17 @@ def send_artifacts_to_batch(listicle_images, json_data):
     return listicle_images, json_data
 
 
-def save_artifacts(listicle_images, image_type, json_data):
+def save_artifacts(listicle_images: gr.data_classes.RootModel, image_type: gr.Dropdown, json_data: str) -> None:
+    """
+    Saves the artifacts to disk.
+    :param listicle_images: The list of images to save. This is a Gradio Gallery.
+    :param image_type: The type of image to save.
+    :param json_data: The JSON data to save.
+    :return: None
+    """
     if not json_data or len(json_data) == 0:
         gr.Warning("No JSON data to save.")
-        return
+        return None
 
     # Save the images
     save_dir = image_processing.save_images_to_disk(listicle_images, image_type)
@@ -148,8 +170,22 @@ def save_artifacts(listicle_images, image_type, json_data):
         gr.Info(f"Saved generated artifacts to {save_dir}.")
 
 
-def generate_listicle(api_key, api_text_model, api_image_model, number_of_items, topic, association,
-                      rating_type, details="", generate_artifacts=False):
+def generate_listicle(api_key: str, api_text_model: str, api_image_model: str, number_of_items: int, topic: str,
+                      association: str, rating_type: str, details: str = "", generate_artifacts: bool = False) \
+        -> (Optional[str], Optional[str], Optional[list[str]]):
+    """
+    Generates a listicle using the OpenAI API.
+    :param api_key: The OpenAI API key to use.
+    :param api_text_model: The OpenAI API text model to use (e.g. 'gpt-4').
+    :param api_image_model: The OpenAI API image model to use (e.g. 'dall-e-3').
+    :param number_of_items: The number of items to generate.
+    :param topic: The topic of the listicle.
+    :param association: What each item is associated with.
+    :param rating_type: What the rating represents.
+    :param details: Additional details about the listicle you want to generate.
+    :param generate_artifacts: Whether to generate artifacts (images and JSON) for the listicle.
+    :return: The listicle content, the listicle JSON, and the listicle images.
+    """
     openai = chatgpt_api.get_openai_client(api_key)
     if openai is None:
         gr.Warning("No OpenAI client. Cannot generate listicle.")

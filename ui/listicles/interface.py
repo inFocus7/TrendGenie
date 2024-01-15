@@ -1,12 +1,18 @@
+"""
+The interface for the Listicles section of the web app.
+"""
+import json
 import gradio as gr
 import processing.image as image_processing
-import json
 import ui.listicles.utils as listicle_utils
 import ui.components.openai as openai_components
 import utils.gradio as gru
 
 
-def render_listicles_section():
+def render_listicles_section() -> None:
+    """
+    Renders the Listicles section of the web app.
+    """
     gru.render_tool_description("Create images in the style of those 'Your birth month is your ___' TikToks.")
     with gr.Tab("Generate Artifacts"):
         send_artifacts_to_batch_button, listicle_image_output, listicle_json_output = render_generate_section()
@@ -20,7 +26,11 @@ def render_listicles_section():
     )
 
 
-def render_batch_section():
+def render_batch_section() -> (gr.File, gr.Code):
+    """
+    Renders the Batch Image Processing section of the web app.
+    :return: The input images and input json components.
+    """
     with gr.Column():
         gr.Markdown("# Input")
         with gr.Row(equal_height=False):
@@ -106,7 +116,11 @@ def render_batch_section():
     return input_batch_images, input_batch_json
 
 
-def render_generate_section():
+def render_generate_section() -> (gr.Button, gr.Gallery, gr.Code):
+    """
+    Renders the Generate Artifacts section of the web app.
+    :return: The send artifacts to batch button, the listicle image output gallery, and the listicle json output.
+    """
     api_key, api_text_model, api_image_model = openai_components.render_openai_setup()
     with gr.Row(equal_height=False):
         with gr.Group():
