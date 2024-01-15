@@ -1,4 +1,3 @@
-import PIL
 from PIL import ImageFont, ImageDraw, Image, ImageFilter
 import numpy as np
 import textwrap
