@@ -80,8 +80,8 @@ def get_chat_response(client: openai.Client, api_model: str, role: str, prompt: 
 
     # Give the model previous chat context
     if context is not None and len(context) > 0:
-        for c in context:
-            message.append(c)
+        for curr_context in context:
+            message.append(curr_context)
 
     message.append({
         "role": "user",
@@ -102,16 +102,17 @@ def get_chat_response(client: openai.Client, api_model: str, role: str, prompt: 
 
     response = response.choices[0]
     if response.finish_reason != "stop":
-        if response.finish_reason == "length":
-            gr.Warning(
-                f"finish_reason: {response.finish_reason}. The maximum number of tokens specified in the request was "
-                f"reached.")
-            return None
-        elif response.finish_reason == "content_filter":
-            gr.Warning(
-                f"finish_reason: {response.finish_reason}. The content was omitted due to a flag from OpenAI's content "
-                f"filters.")
-            return None
+        match response.finish_reason:
+            case "length":
+                gr.Warning(
+                    f"finish_reason: {response.finish_reason}. The maximum number of tokens specified in the request "
+                    f"was reached.")
+                return None
+            case "content_filter":
+                gr.Warning(
+                    f"finish_reason: {response.finish_reason}. The content was omitted due to a flag from OpenAI's "
+                    f"content filters.")
+                return None
 
     content = response.message.content
     if content is None or content == "":

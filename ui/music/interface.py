@@ -73,8 +73,9 @@ def render_process_cover() -> (gr.Button, gr.Image, gr.Image):
     with gr.Column():
         gr.Markdown("## Input")
         with gr.Group():
-            input_image = gr.Image(sources=["upload"], label="Cover Image (png)", type="filepath", show_download_button=False,
-                                   scale=2, elem_classes=["single-image-input"], image_mode="RGBA")
+            input_image = gr.Image(sources=["upload"], label="Cover Image (png)", type="filepath",
+                                   show_download_button=False, scale=2, elem_classes=["single-image-input"],
+                                   image_mode="RGBA")
 
         with gr.Row(equal_height=False):
             with gr.Group():

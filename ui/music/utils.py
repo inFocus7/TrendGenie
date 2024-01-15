@@ -1,29 +1,41 @@
+"""
+This file contains the functions and utilities used to generate the music video and cover image.
+"""
 import os
 import subprocess
 import re
 import time
 import cv2
+from typing import List, Dict, Optional
 from moviepy.editor import AudioFileClip
-import utils.font_manager as font_manager
+from utils import font_manager
 import utils.image as image_utils
 import numpy as np
 import tempfile
-import api.chatgpt as chatgpt_api
-import processing.image as image_processing
+from api import chatgpt as chatgpt_api
+from processing import image as image_processing
 import librosa
 from utils import progress, visualizer
 import cProfile
 
 
-def analyze_audio(audio, target_fps):
-    y, sr = librosa.load(audio, sr=None)
-    D = librosa.stft(y)
-    D_db = librosa.amplitude_to_db(np.abs(D), ref=np.max)
+def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]], np.ndarray):
+    """
+    Analyzes the audio file at the given path and returns the frequency loudness and times relating to the frequency
+    loudness.
+    :param audio_path: The path to the audio file to analyze.
+    :param target_fps: The target frames per second for the audio visualizer. This is used to downsample the audio so
+      that it aligns with the video.
+    :return: A tuple containing the frequency loudness and times relating to the frequency loudness.
+    """
+    y, sr = librosa.load(audio_path, sr=None)
+    d = librosa.stft(y)
+    d_db = librosa.amplitude_to_db(np.abs(d), ref=np.max)
 
     frequencies = librosa.fft_frequencies(sr=sr)
-    times = librosa.frames_to_time(np.arange(D_db.shape[1]), sr=sr)
+    times = librosa.frames_to_time(np.arange(d_db.shape[1]), sr=sr)
 
-    audio_clip = AudioFileClip(audio)
+    audio_clip = AudioFileClip(audio_path)
     audio_frames_per_video_frame = len(times) / (target_fps * audio_clip.duration)
 
     sample_indices = np.arange(0, len(times), audio_frames_per_video_frame)
@@ -31,36 +43,82 @@ def analyze_audio(audio, target_fps):
     sample_indices = sample_indices[sample_indices < len(times)]
 
     downsampled_times = times[sample_indices]
-    downsampled_frequency_loudness = [dict(zip(frequencies, D_db[:, i])) for i in sample_indices]
+    downsampled_frequency_loudness = [dict(zip(frequencies, d_db[:, i])) for i in sample_indices]
 
     return downsampled_frequency_loudness, downsampled_times
 
 
 def create_music_video(
-        image, audio, fps,
-        artist, artist_font_type, artist_font_style, artist_font_size, artist_font_color, artist_font_opacity,
-        artist_shadow_enabled, artist_shadow_color, artist_shadow_opacity, artist_shadow_radius,
-        artist_background_enabled, artist_background_color, artist_background_opacity,
-        song, song_font_type, song_font_style, song_font_size, song_font_color, song_font_opacity, song_shadow_enabled,
-        song_shadow_color, song_shadow_opacity, song_shadow_radius, song_background_enabled, song_background_color,
-        song_background_opacity,
-        background_color=(0, 0, 0), background_opacity=66, generate_audio_visualizer=False,
-        audio_visualizer_color=(255, 255, 255), audio_visualizer_opacity=100, visualizer_drawing=None,
-        audio_visualizer_num_rows=90, audio_visualizer_num_columns=65, audio_visualizer_min_size=1,
-        audio_visualizer_max_size=7):
-    if image is None:
+        image_path: str, audio_path: str, fps: int,
+        artist: str, artist_font_type: str, artist_font_style: str, artist_font_size: int,
+        artist_font_color: tuple[int, int, int], artist_font_opacity: int, artist_shadow_enabled: bool,
+        artist_shadow_color: tuple[int, int, int], artist_shadow_opacity: int, artist_shadow_radius: int,
+        artist_background_enabled: bool, artist_background_color: tuple[int, int, int], artist_background_opacity: int,
+        song: str, song_font_type: str, song_font_style: str, song_font_size: int,
+        song_font_color: tuple[int, int, int], song_font_opacity: int, song_shadow_enabled: bool,
+        song_shadow_color: tuple[int, int, int], song_shadow_opacity: int, song_shadow_radius: int,
+        song_background_enabled: bool, song_background_color: tuple[int, int, int], song_background_opacity: int,
+        background_color: tuple[int, int, int] = (0, 0, 0), background_opacity: int = 66,
+        generate_audio_visualizer: bool = False, audio_visualizer_color: tuple[int, int, int] =(255, 255, 255),
+        audio_visualizer_opacity: int = 100, visualizer_drawing: Optional[str] = None,
+        audio_visualizer_num_rows: int = 90, audio_visualizer_num_columns: int = 65, audio_visualizer_min_size: int = 1,
+        audio_visualizer_max_size: int = 7) -> Optional[str]:
+    """
+    Creates a music video using the given parameters.
+    :param image_path: The path to the image to use as the cover + background for the video.
+    :param audio_path: The path to the audio file to use for the video.
+    :param fps: The frames per second to use for the video.
+    :param artist: The artist name to add to the video.
+    :param artist_font_type: The font family to use for the artist name.
+    :param artist_font_style: The font style to use for the artist name.
+    :param artist_font_size: The font size to use for the artist name.
+    :param artist_font_color: The font color to use for the artist name.
+    :param artist_font_opacity: The font opacity to use for the artist name.
+    :param artist_shadow_enabled: Whether to show a shadow for the artist name.
+    :param artist_shadow_color: The shadow color to use for the artist name.
+    :param artist_shadow_opacity: The shadow opacity to use for the artist name.
+    :param artist_shadow_radius: The shadow radius to use for the artist name.
+    :param artist_background_enabled: Whether to show a background for the artist name.
+    :param artist_background_color: The background color to use for the artist name.
+    :param artist_background_opacity: The background opacity to use for the artist name.
+    :param song: The song name to add to the video.
+    :param song_font_type: The font family to use for the song name.
+    :param song_font_style: The font style to use for the song name.
+    :param song_font_size: The font size to use for the song name.
+    :param song_font_color: The font color to use for the song name.
+    :param song_font_opacity: The font opacity to use for the song name.
+    :param song_shadow_enabled: Whether to show a shadow for the song name.
+    :param song_shadow_color: The shadow color to use for the song name.
+    :param song_shadow_opacity: The shadow opacity to use for the song name.
+    :param song_shadow_radius: The shadow radius to use for the song name.
+    :param song_background_enabled: Whether to show a background for the song name.
+    :param song_background_color: The background color to use for the song name.
+    :param song_background_opacity: The background opacity to use for the song name.
+    :param background_color: The background color to use for the video.
+    :param background_opacity: The background opacity to use for the video.
+    :param generate_audio_visualizer: Whether to generate an audio visualizer for the video.
+    :param audio_visualizer_color: The color to use for the audio visualizer.
+    :param audio_visualizer_opacity: The opacity to use for the audio visualizer.
+    :param visualizer_drawing: The path to the image to use for the audio visualizer. If None, uses a circle.
+    :param audio_visualizer_num_rows: The number of rows to use for the audio visualizer's drawings.
+    :param audio_visualizer_num_columns: The number of columns to use for the audio visualizer's drawings.
+    :param audio_visualizer_min_size: The minimum size to use for the audio visualizer's drawings (silence).
+    :param audio_visualizer_max_size: The maximum size to use for the audio visualizer's drawings (peak loudness).
+    :return: The path to the generated video, or None if there was an error.
+    """
+    if image_path is None:
         print("No cover image for the video.")
-        return
-    if audio is None:
+        return None
+    if audio_path is None:
         print("No audio to add to the video.")
-        return
+        return None
 
     # Could probably expand to 4k, but unnecessary for this type of music video
     # Maybe in a future iteration it could be worth it
     width, height = 1920, 1080
 
     # Set up cover
-    cover = cv2.imread(image, cv2.IMREAD_UNCHANGED)
+    cover = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     if cover.shape[2] == 3:
         cover = cv2.cvtColor(cover, cv2.COLOR_BGR2RGBA)
     else:
@@ -84,10 +142,10 @@ def create_music_video(
     canvas[cover_pos[1]:cover_pos[1] + new_height, cover_pos[0]:cover_pos[0] + new_width] = cover
 
     # Load song / audio
-    audio_clip = AudioFileClip(audio)
+    audio_clip = AudioFileClip(audio_path)
 
     # Add video background
-    background = cv2.imread(image)
+    background = cv2.imread(image_path)
     background = cv2.resize(background, (width, height))
     background = cv2.GaussianBlur(background, (49, 49), 0)
     if background.shape[2] == 3:
@@ -117,7 +175,7 @@ def create_music_video(
 
     if generate_audio_visualizer:
         print("Generating audio visualizer...")
-        frequency_loudness, times = analyze_audio(audio, fps)
+        frequency_loudness, times = analyze_audio(audio_path, fps)
         frame_cache = np.zeros((height, width, 4), dtype=np.uint8)
 
         total_iterations = len(times)
@@ -161,16 +219,16 @@ def create_music_video(
                                                                   song_background_opacity))
     artist_pos = (song_pos[0], song_pos[1] - song_height - 5)
     text_canvas, (_, _) = image_processing.add_text(text_canvas, artist, artist_pos,
-                                                                font_families[artist_font_type][artist_font_style],
-                                                                font_size=artist_font_size,
-                                                                font_color=image_utils.get_rgba(artist_font_color,
-                                                                                                artist_font_opacity),
-                                                                show_shadow=artist_shadow_enabled,
-                                                                shadow_radius=artist_shadow_radius,
-                                                                shadow_color=image_utils.get_rgba(artist_shadow_color,
-                                                                                                  artist_shadow_opacity),
-                                                                show_background=artist_background_enabled,
-                                                                background_color=image_utils.get_rgba(
+                                                    font_families[artist_font_type][artist_font_style],
+                                                    font_size=artist_font_size,
+                                                    font_color=image_utils.get_rgba(artist_font_color,
+                                                                                    artist_font_opacity),
+                                                    show_shadow=artist_shadow_enabled,
+                                                    shadow_radius=artist_shadow_radius,
+                                                    shadow_color=image_utils.get_rgba(artist_shadow_color,
+                                                                                      artist_shadow_opacity),
+                                                    show_background=artist_background_enabled,
+                                                    background_color=image_utils.get_rgba(
                                                                     artist_background_color, artist_background_opacity))
 
     text_np = np.array(text_canvas)
@@ -216,7 +274,7 @@ def create_music_video(
     ffmpeg_commands.extend([
         "-framerate", str(fps),
         "-i", temp_canvas_image_path,
-        "-i", audio,
+        "-i", audio_path,
         "-filter_complex", filter_complex,
         "-map", audio_input_map,
         "-c:v", "libx264",
@@ -268,7 +326,14 @@ def create_music_video(
     return temp_final_video_path
 
 
-def generate_cover_image(api_key, api_model, prompt):
+def generate_cover_image(api_key: str, api_model: str, prompt: str) -> Optional[str]:
+    """
+    Generates a cover image using the OpenAI API based on a given prompt and specified parameters.
+    :param api_key: The API key to use for the OpenAI API.
+    :param api_model: The model to use for image generation (e.g., 'dall-e-3').
+    :param prompt: The text prompt based on which the image is generated.
+    :return: The URL of the generated image, or None if no image was generated or if there was an error.
+    """
     client = chatgpt_api.get_openai_client(api_key)
     image_url = chatgpt_api.get_image_response(client, api_model, prompt, portrait=False)
     if image_url is None or image_url == "":
@@ -277,12 +342,46 @@ def generate_cover_image(api_key, api_model, prompt):
     return chatgpt_api.url_to_gradio_image_name(image_url)
 
 
-def process(image_path, artist, song,
-            af_family, af_style, afs, afc, afo, ase, asc, aso, asr, abe, abc, abo,
-            sf_family, sf_style, sfs, sfc, sfo, sse, ssc, sso, ssr, sbe, sbc, sbo):
+def process(image_path: str, artist: str, song: str,
+            af_family: str, af_style: str, afs: int, afc: tuple[int, int, int], afo: int, ase: bool,
+            asc: tuple[int, int, int], aso: int, asr: Optional[int], abe: bool, abc: tuple[int, int, int], abo: int,
+            sf_family: str, sf_style: str, sfs: int, sfc: tuple[int, int, int], sfo: int, sse: bool,
+            ssc: tuple[int, int, int], sso: int, ssr: Optional[int], sbe: bool, sbc: tuple[int, int, int], sbo: int) \
+        -> Optional[np.ndarray]:
+    """
+    Processes the image at the given path (by adding the requested text) and returns the processed image.
+    :param image_path: The path to the image to process.
+    :param artist: The artist name to add to the image.
+    :param song: The song name to add to the image.
+    :param af_family: The font family to use for the artist name.
+    :param af_style: The font style to use for the artist name.
+    :param afs: The font size to use for the artist name.
+    :param afc: The font color to use for the artist name.
+    :param afo: The font opacity to use for the artist name.
+    :param ase: Whether to show a shadow for the artist name.
+    :param asc: The shadow color to use for the artist name.
+    :param aso: The shadow opacity to use for the artist name.
+    :param asr: The shadow radius to use for the artist name.
+    :param abe: Whether to show a background for the artist name.
+    :param abc: The background color to use for the artist name.
+    :param abo: The background opacity to use for the artist name.
+    :param sf_family: The font family to use for the song name.
+    :param sf_style: The font style to use for the song name.
+    :param sfs: The font size to use for the song name.
+    :param sfc: The font color to use for the song name.
+    :param sfo: The font opacity to use for the song name.
+    :param sse: Whether to show a shadow for the song name.
+    :param ssc: The shadow color to use for the song name.
+    :param sso: The shadow opacity to use for the song name.
+    :param ssr: The shadow radius to use for the song name.
+    :param sbe: Whether to show a background for the song name.
+    :param sbc: The background color to use for the song name.
+    :param sbo: The background opacity to use for the song name.
+    :return: The processed image as a numpy array. If there was no image to process, returns None.
+    """
     if image_path is None:
         print("No image to modify.")
-        return
+        return None
 
     font_families = font_manager.get_fonts()
     aff = font_families[af_family][af_style]

@@ -1,18 +1,21 @@
-from typing import Optional, Literal
+"""
+This module contains functions for processing images.
+"""
+import textwrap
+import uuid
+import os
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, Literal, Union, Tuple
 from PIL import ImageFont, ImageDraw, Image, ImageFilter
 import numpy as np
-import textwrap
 import gradio as gr
-import uuid
-from datetime import datetime
-import os
 import cv2
-from pathlib import Path
-import utils.path_handler as path_handler
+from utils import path_handler
 import utils.gradio as gru
 
-image_folder = "images"
-default_path = os.path.join(path_handler.get_default_path(), image_folder)
+IMAGE_FOLDER = "images"
+default_path = os.path.join(path_handler.get_default_path(), IMAGE_FOLDER)
 
 
 def render_image_output() -> (gr.Image, gr.Textbox, gr.Dropdown, gr.Button):
@@ -212,9 +215,29 @@ def save_image_to_disk(image_path: str, name: Optional[str] = None, save_dir: st
 
 
 # Function to add text to an image with custom font, size, and wrapping
-def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 255, 255), shadow_color=(255, 255, 255),
-             shadow_radius=None, max_width=None, show_background=False, show_shadow=False,
-             background_color=(0, 0, 0, 255), x_center=False):
+def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[int, int], font_path: str,
+             font_size: int, font_color: Tuple[int, int, int, int] = (255, 255, 255, 255),
+             shadow_color: Tuple[int, int, int, int] = (255, 255, 255, 255),
+             shadow_radius: Optional[int] = None, max_width: Optional[int] = None, show_background: bool = False,
+             show_shadow: bool = False, background_color: Tuple[int, int, int, int] = (0, 0, 0, 255),
+             x_center: bool = False) -> (np.ndarray, Tuple[int, int]):
+    """
+    Adds text to an image with custom font, size, and wrapping.
+    :param image: The image to add text to.
+    :param text: The text to add to the image.
+    :param position: The (x, y) position of the text on the image.
+    :param font_path: The path to the font to use.
+    :param font_size: The size of the font.
+    :param font_color: The color of the font.
+    :param shadow_color: The color of the shadow.
+    :param shadow_radius: The radius of the shadow.
+    :param max_width: The maximum width of the text before wrapping.
+    :param show_background: Whether to show a background behind the text.
+    :param show_shadow: Whether to show a shadow behind the text.
+    :param background_color: The color of the background.
+    :param x_center: Whether to center the text on the x-axis. This ignores the positional x parameter.
+    :return: A tuple containing the image with text added and the size of the text block.
+    """
     if not isinstance(position, tuple):
         raise TypeError("Position must be a 2-tuple.", type(position))
 
@@ -231,7 +254,7 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
     font = ImageFont.truetype(font_path, font_size)
     draw = ImageDraw.Draw(txt_layer)
 
-    img_width, img_height = image_pil.size
+    img_width, _ = image_pil.size
 
     if max_width:  # Prepare for text wrapping if max_width is provided
         wrapped_text = textwrap.fill(text, width=max_width)
@@ -244,7 +267,7 @@ def add_text(image, text, position, font_path, font_size, font_color=(255, 255, 
     y_offset = 0
     max_line_width = 0  # Keep track of the widest line
     total_height = 0  # Accumulate total height of text block
-    for i, line in enumerate(lines):
+    for line in lines:
         bbox = draw.textbbox((0, 0), line, font=font)
         line_width = bbox[2] - bbox[0]
         line_height = bbox[3] - bbox[1]
