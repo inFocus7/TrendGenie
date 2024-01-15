@@ -6,18 +6,19 @@ class Visualizer:
     def __init__(self, base_size, max_size, color, dot_count, width, height):
         self.base_size = base_size
         self.max_size = max_size
-        self.color = color # This is CV2, so will need to be BGR
+        self.color = color
         self.dot_count = dot_count
         self.width = width
         self.height = height
         self.cached_dot_positions = None
+        self.cached_resized_drawing = {}
 
     def initialize_static_values(self):
         # Calculate and store dot positions
         x_positions = (self.width / self.dot_count[0]) * np.arange(self.dot_count[0]) + (
-                    self.width / self.dot_count[0] / 2)
+                self.width / self.dot_count[0] / 2)
         y_positions = (self.height / self.dot_count[1]) * np.arange(self.dot_count[1]) + (
-                    self.height / self.dot_count[1] / 2)
+                self.height / self.dot_count[1] / 2)
         grid_x, grid_y = np.meshgrid(x_positions, y_positions)
         self.cached_dot_positions = [(grid_x[y, x], grid_y[y, x]) for x in range(self.dot_count[0]) for y in
                                      range(self.dot_count[1])]
@@ -61,7 +62,7 @@ class Visualizer:
                 avg_loudness = loudness_values[column]
                 # Scale the loudness to the dot size
                 scaled_loudness = (avg_loudness - min_loudness) / (
-                            max_loudness - min_loudness) if max_loudness != min_loudness else 0
+                        max_loudness - min_loudness) if max_loudness != min_loudness else 0
                 dot_size = self.base_size + scaled_loudness * (self.max_size - self.base_size)
                 dot_size = min(max(dot_size, self.base_size), self.max_size)
 
@@ -73,20 +74,28 @@ class Visualizer:
             dot_size = int(dot_size)
             center = (int(pos_x), int(pos_y))
             if custom_drawing is not None:
-                # There needs to be extra logic to handle the custom drawing does not go out of bounds and break the
-                # array. This is possible when drawing the dots, but i believe it needs to be _very_ large to do so,
-                # and it's not worth the extra computation to check for it in favor of speed.
+                if dot_size not in self.cached_resized_drawing:
+                    self.cached_resized_drawing[dot_size] = cv2.resize(custom_drawing, (dot_size, dot_size),
+                                                                       interpolation=cv2.INTER_LANCZOS4)
+                resized_custom_drawing = self.cached_resized_drawing[dot_size]
+
                 center_x, center_y = int(pos_x), int(pos_y)
                 half_dot_size = dot_size // 2
 
-                # get bounding box
-                start_x, end_x = max(center_x - half_dot_size, 0), min(center_x + half_dot_size, canvas.shape[1])
-                start_y, end_y = max(center_y - half_dot_size, 0), min(center_y + half_dot_size, canvas.shape[0])
+                # Calculate bounds on the canvas
+                start_x = max(center_x - half_dot_size, 0)
+                end_x = min(center_x + half_dot_size, canvas.shape[1])
+                start_y = max(center_y - half_dot_size, 0)
+                end_y = min(center_y + half_dot_size, canvas.shape[0])
 
-                # Check if the bounding box is valid
-                if start_x < end_x and start_y < end_y:
-                    resized_custom_drawing = cv2.resize(custom_drawing, (end_x - start_x, end_y - start_y),
-                                                        interpolation=cv2.INTER_LANCZOS4)
-                    canvas[start_y:end_y, start_x:end_x] = resized_custom_drawing
+                # Calculate corresponding bounds on the resized image
+                img_start_x = max(half_dot_size - (center_x - start_x), 0)
+                img_end_x = img_start_x + (end_x - start_x)
+                img_start_y = max(half_dot_size - (center_y - start_y), 0)
+                img_end_y = img_start_y + (end_y - start_y)
+
+                # Place the image slice onto the canvas
+                canvas[start_y:end_y, start_x:end_x] = resized_custom_drawing[img_start_y:img_end_y,
+                                                                              img_start_x:img_end_x]
             else:
                 cv2.circle(canvas, center, dot_size // 2, self.color, -1)

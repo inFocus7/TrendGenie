@@ -52,7 +52,7 @@ def render_process_cover():
     with gr.Column():
         gr.Markdown("## Input")
         with gr.Group():
-            input_image = gr.Image(sources=["upload"], label="Cover Image", type="filepath", show_download_button=False,
+            input_image = gr.Image(sources=["upload"], label="Cover Image (png)", type="filepath", show_download_button=False,
                                    scale=2, elem_classes=["single-image-input"], image_mode="RGBA")
 
         with gr.Row(equal_height=False):
@@ -87,7 +87,7 @@ def render_process_cover():
 def render_music_video_creation():
     gr.Markdown("## Input")
     with gr.Row(equal_height=False):
-        cover_image = gr.Image(label="Cover Image", type="filepath", sources=["upload"],
+        cover_image = gr.Image(label="Cover Image (png)", type="filepath", sources=["upload"],
                                show_share_button=False, show_download_button=False, scale=2, image_mode="RGBA")
         audio_filepath = gr.File(label="Audio", file_types=["audio"], scale=1, height=100)
     with gr.Column():
