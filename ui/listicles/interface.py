@@ -1,12 +1,18 @@
+"""
+The interface for the Listicles section of the web app.
+"""
+import json
 import gradio as gr
 import processing.image as image_processing
-import json
 import ui.listicles.utils as listicle_utils
 import ui.components.openai as openai_components
 import utils.gradio as gru
 
 
-def render_listicles_section():
+def render_listicles_section() -> None:
+    """
+    Renders the Listicles section of the web app.
+    """
     gru.render_tool_description("Create images in the style of those 'Your birth month is your ___' TikToks.")
     with gr.Tab("Generate Artifacts"):
         send_artifacts_to_batch_button, listicle_image_output, listicle_json_output = render_generate_section()
@@ -20,7 +26,11 @@ def render_listicles_section():
     )
 
 
-def render_batch_section():
+def render_batch_section() -> (gr.File, gr.Code):
+    """
+    Renders the Batch Image Processing section of the web app.
+    :return: The input images and input json components.
+    """
     with gr.Column():
         gr.Markdown("# Input")
         with gr.Row(equal_height=False):
@@ -38,7 +48,7 @@ def render_batch_section():
                     if not json_file:
                         gr.Warning("No JSON file uploaded. Reverse to default.")
                         return input_batch_json.value
-                    with open(json_file.name, "r") as file:
+                    with open(json_file.name, "r", encoding="utf-8") as file:
                         json_data = json.load(file)
                         json_data = json.dumps(json_data, indent=4)
 
@@ -71,15 +81,11 @@ def render_batch_section():
         with gr.Column(scale=3):
             gr.Markdown("# Parameters")
             with gr.Row(equal_height=False):
-                (nf_family, nf_style, nfs, nfc, nfo), (nse, nsc, nso, nsr), (
-                    nbe, nbc, nbo) = image_processing.render_text_editor_parameters("Name")
-                (df_family, df_style, dfs, dfc, dfo), (dse, dsc, dso, dsr), (
-                    dbe, dbc, dbo) = image_processing.render_text_editor_parameters("Description")
+                name_font_display = image_processing.render_text_editor_parameters("Name")
+                desc_font_display = image_processing.render_text_editor_parameters("Description")
             with gr.Row(equal_height=False):
-                (mf_family, mf_style, mfs, mfc, mfo), (mse, msc, mso, msr), (
-                    mbe, mbc, mbo) = image_processing.render_text_editor_parameters("Association")
-                (rf_family, rf_style, rfs, rfc, rfo), (rse, rsc, rso, rsr), (
-                    rbe, rbc, rbo) = image_processing.render_text_editor_parameters("Rating")
+                asc_font_display = image_processing.render_text_editor_parameters("Association")
+                rate_font_display = image_processing.render_text_editor_parameters("Rating")
 
         with gr.Column(scale=1):
             gr.Markdown("# Output")
@@ -93,21 +99,58 @@ def render_batch_section():
     save_button.click(image_processing.save_images_to_disk, inputs=[output_preview, image_type],
                       outputs=[])
     process_button.click(listicle_utils.process, inputs=[input_batch_images, input_batch_json,
-                                                         nf_family, nf_style, nfs, nfc, nfo, nse, nsc, nso, nsr, nbe,
-                                                         nbc, nbo,
-                                                         df_family, df_style, dfs, dfc, dfo, dse, dsc, dso, dsr, dbe,
-                                                         dbc, dbo,
-                                                         mf_family, mf_style, mfs, mfc, mfo, mse, msc, mso, msr, mbe,
-                                                         mbc, mbo,
-                                                         rf_family, rf_style, rfs, rfc, rfo, rse, rsc, rso, rsr, rbe,
-                                                         rbc, rbo
+                                                         name_font_display.font.family, name_font_display.font.style,
+                                                         name_font_display.font.size, name_font_display.font.color,
+                                                         name_font_display.font.opacity,
+                                                         name_font_display.drop_shadow.enabled,
+                                                         name_font_display.drop_shadow.color,
+                                                         name_font_display.drop_shadow.opacity,
+                                                         name_font_display.drop_shadow.radius,
+                                                         name_font_display.background.enabled,
+                                                         name_font_display.background.color,
+                                                         name_font_display.background.opacity,
+                                                         desc_font_display.font.family, desc_font_display.font.style,
+                                                         desc_font_display.font.size, desc_font_display.font.color,
+                                                         desc_font_display.font.opacity,
+                                                         desc_font_display.drop_shadow.enabled,
+                                                         desc_font_display.drop_shadow.color,
+                                                         desc_font_display.drop_shadow.opacity,
+                                                         desc_font_display.drop_shadow.radius,
+                                                         desc_font_display.background.enabled,
+                                                         desc_font_display.background.color,
+                                                         desc_font_display.background.opacity,
+                                                         asc_font_display.font.family, asc_font_display.font.style,
+                                                         asc_font_display.font.size, asc_font_display.font.color,
+                                                         asc_font_display.font.opacity,
+                                                         asc_font_display.drop_shadow.enabled,
+                                                         asc_font_display.drop_shadow.color,
+                                                         asc_font_display.drop_shadow.opacity,
+                                                         asc_font_display.drop_shadow.radius,
+                                                         asc_font_display.background.enabled,
+                                                         asc_font_display.background.color,
+                                                         asc_font_display.background.opacity,
+                                                         rate_font_display.font.family, rate_font_display.font.style,
+                                                         rate_font_display.font.size, rate_font_display.font.color,
+                                                         rate_font_display.font.opacity,
+                                                         rate_font_display.drop_shadow.enabled,
+                                                         rate_font_display.drop_shadow.color,
+                                                         rate_font_display.drop_shadow.opacity,
+                                                         rate_font_display.drop_shadow.radius,
+                                                         rate_font_display.background.enabled,
+                                                         rate_font_display.background.color,
+                                                         rate_font_display.background.opacity,
                                                          ], outputs=[output_preview])
 
     return input_batch_images, input_batch_json
 
 
-def render_generate_section():
-    api_key, api_text_model, api_image_model = openai_components.render_openai_setup()
+def render_generate_section() -> (gr.Button, gr.Gallery, gr.Code):
+    """
+    Renders the Generate Artifacts section of the web app.
+    :return: The send artifacts to batch button, the listicle image output gallery, and the listicle json output.
+    """
+    # api_key, api_text_model, api_image_model = openai_components.render_openai_setup()
+    open_ai_components = openai_components.render_openai_setup()
     with gr.Row(equal_height=False):
         with gr.Group():
             with gr.Group():
@@ -145,8 +188,9 @@ def render_generate_section():
                 send_artifacts_to_batch_button = gr.Button("Send Artifacts to 'Batch Processing'",
                                                            variant="secondary")
         generate_listicle_button.click(listicle_utils.generate_listicle,
-                                       inputs=[api_key, api_text_model, api_image_model, num_items, topic,
-                                               association, rating_type, details, generate_artifacts],
+                                       inputs=[open_ai_components.api_key, open_ai_components.api_text_model,
+                                               open_ai_components.api_image_model, num_items, topic, association,
+                                               rating_type, details, generate_artifacts],
                                        outputs=[listicle_output, listicle_json_output, listicle_image_output])
         download_artifacts_button.click(
             listicle_utils.save_artifacts,

@@ -1,0 +1,10 @@
+[MAIN]
+max-line-length=120
+max-attributes=10
+max-locals=20
+# Currently, this is added because gradio Inputs don't support passing tuples/dataclasses/etc. as arguments, meaning I
+# can't shorten some methods that take a lot of arguments.
+disable=too-many-arguments
+
+[TYPECHECK]
+generated-members=gradio.components.dropdown.*,gradio.components.button.*,cv2.*

@@ -1,8 +1,11 @@
-#!/usr/bin/env python3
+"""
+This is the main file for the web app. It launches the web app and initializes the font manager and inflect engine.
+"""
+# !/usr/bin/env python3
 # -*- coding: utf-8 -*
 
-import ui.ui as ui
-import utils.font_manager as font_manager
+from ui import ui
+from utils import font_manager
 
 if __name__ == '__main__':
     # Initialize fonts, and svg file grabber at start

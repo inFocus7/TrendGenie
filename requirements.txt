@@ -1,8 +1,8 @@
 gradio~=4.12.0
 inflect~=7.0.0
 openai~=1.6.1
-numpy~=1.23.5
-Pillow~=8.4.0
+numpy~=1.26.3
+Pillow~=10.2.0
 opencv-python-headless~=4.8.1.78
 fonttools~=4.47.0
 moviepy~=1.0.3
