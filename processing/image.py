@@ -35,9 +35,7 @@ def render_image_output() -> (gr.Image, gr.Textbox, gr.Dropdown, gr.Button):
     return image_output, image_name, image_suffix, save_image_button
 
 
-def render_text_editor_parameters(name: str) -> (dataclasses.FontGradioComponents,
-                                                 dataclasses.FontDropShadowGradioComponents,
-                                                 dataclasses.FontBackgroundGradioComponents):
+def render_text_editor_parameters(name: str) -> dataclasses.FontDisplayGradioComponents:
     """
     Renders the text editor parameters.
     :param name: The name of the text editor parameters. This is used as the label for the accordion.
@@ -49,18 +47,21 @@ def render_text_editor_parameters(name: str) -> (dataclasses.FontGradioComponent
             with gr.Group():
                 drop_shadow_enabled = gr.Checkbox(False, label="Enable Drop Shadow", interactive=True)
                 with gr.Group(visible=drop_shadow_enabled.value) as additional_options:
-                    drop_shadow_color, drop_shadow_opacity = gru.render_color_opacity_picker()
+                    drop_shadow_color_opacity = gru.render_color_opacity_picker()
                     drop_shadow_radius = gr.Number(0, label="Shadow Radius")
                     gru.bind_checkbox_to_visibility(drop_shadow_enabled, additional_options)
             with gr.Group():
                 background_enabled = gr.Checkbox(False, label="Enable Background", interactive=True)
                 with gr.Group(visible=background_enabled.value) as additional_options:
-                    background_color, background_opacity = gru.render_color_opacity_picker()
+                    background_color_opacity = gru.render_color_opacity_picker()
                     gru.bind_checkbox_to_visibility(background_enabled, additional_options)
 
-    return (font_data, dataclasses.FontDropShadowGradioComponents(drop_shadow_enabled, drop_shadow_color,
-                                                                  drop_shadow_opacity, drop_shadow_radius),
-            dataclasses.FontBackgroundGradioComponents(background_enabled, background_color, background_opacity))
+    drop_shadow_data = dataclasses.FontDropShadowGradioComponents(drop_shadow_enabled, drop_shadow_color_opacity.color,
+                                                                  drop_shadow_color_opacity.opacity, drop_shadow_radius)
+    background_data = dataclasses.FontBackgroundGradioComponents(background_enabled, background_color_opacity.color,
+                                                                 background_color_opacity.opacity)
+
+    return dataclasses.FontDisplayGradioComponents(font_data, drop_shadow_data, background_data)
 
 
 def add_background(image_pil: Image, draw: ImageDraw, position: tuple[int, int], text: str, font: ImageFont,
@@ -216,7 +217,23 @@ def save_image_to_disk(image_path: str, name: Optional[str] = None, save_dir: st
     return save_dir
 
 
-# Function to add text to an image with custom font, size, and wrapping
+def _get_lines(text: str, max_width: Optional[int] = None) -> list[str]:
+    """
+    Gets the lines of text from a string.
+    :param text: The text to get the lines from.
+    :param max_width: The maximum width of the text before wrapping.
+    :return: A list of lines.
+    """
+    if max_width:  # Prepare for text wrapping if max_width is provided
+        wrapped_text = textwrap.fill(text, width=max_width)
+    else:
+        wrapped_text = text
+
+    return wrapped_text.split('\n')
+
+
+# A lot of the reported variables come from the parameters
+# pylint: disable=too-many-locals
 def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[int, int], font_path: str,
              font_size: int, font_color: Tuple[int, int, int, int] = (255, 255, 255, 255),
              shadow_color: Tuple[int, int, int, int] = (255, 255, 255, 255),
@@ -256,12 +273,7 @@ def add_text(image: Union[Image.Image, np.ndarray], text: str, position: Tuple[i
     font = ImageFont.truetype(font_path, font_size)
     draw = ImageDraw.Draw(txt_layer)
 
-    if max_width:  # Prepare for text wrapping if max_width is provided
-        wrapped_text = textwrap.fill(text, width=max_width)
-    else:
-        wrapped_text = text
-
-    lines = wrapped_text.split('\n')
+    lines = _get_lines(text, max_width)
 
     y_offset = 0
     # max_line_width = 0  # Keep track of the widest line

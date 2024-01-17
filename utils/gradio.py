@@ -5,18 +5,18 @@ import gradio as gr
 from utils import font_manager, dataclasses
 
 
-def render_color_opacity_picker(default_name_label: str = "Font") -> tuple[gr.ColorPicker, gr.Slider]:
+def render_color_opacity_picker(default_name_label: str = "Font") -> dataclasses.ColorOpacityGradioComponents:
     """
     Renders a color picker with the appropriate styling.
     :param default_name_label: The default name label to use.
-    :return: A tuple containing the color and opacity components.
+    :return: A class containing the color and opacity components.
     """
     with gr.Group():
         with gr.Row():
             color = gr.ColorPicker(label=f"{default_name_label} Color", scale=1, interactive=True)
             opacity = gr.Slider(0, 100, value=100, label="Opacity", scale=2, interactive=True)
 
-    return color, opacity
+    return dataclasses.ColorOpacityGradioComponents(color, opacity)
 
 
 def bind_checkbox_to_visibility(checkbox: gr.Checkbox, group: gr.Group):
@@ -58,10 +58,11 @@ def render_font_picker(default_font_size: int = 55) -> dataclasses.FontGradioCom
 
         font_family.change(update_font_styles, inputs=[font_family], outputs=[font_style])
     with gr.Group():
-        font_color, font_opacity = render_color_opacity_picker()
+        font_color_opacity = render_color_opacity_picker()
         font_size = gr.Number(default_font_size, label="Font Size", interactive=True)
 
-    return dataclasses.FontGradioComponents(font_family, font_style, font_color, font_opacity, font_size)
+    return dataclasses.FontGradioComponents(font_family, font_style, font_color_opacity.color,
+                                            font_color_opacity.opacity, font_size)
 
 
 def render_tool_description(description: str):

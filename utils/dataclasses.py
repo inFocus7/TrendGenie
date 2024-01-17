@@ -59,8 +59,17 @@ class MinMax:
     """
     A dataclass representing a minimum and maximum value.
     """
-    min: int
-    max: int
+    min: Union[int, float]
+    max: Union[int, float]
+
+
+@dataclass
+class MinMaxGradioComponents:
+    """
+    A dataclass representing the components of a minimum and maximum value editor.
+    """
+    min: gr.Number
+    max: gr.Number
 
 
 @dataclass
@@ -70,6 +79,15 @@ class RowCol:
     """
     row: int
     col: int
+
+
+@dataclass
+class RowColGradioComponents:
+    """
+    A dataclass representing the components of a row and column editor.
+    """
+    row: gr.Number
+    col: gr.Number
 
 
 @dataclass
@@ -103,6 +121,52 @@ class FontBackgroundGradioComponents:
     enabled: gr.Checkbox
     color: gr.ColorPicker
     opacity: gr.Slider
+
+
+@dataclass
+class FontDisplayGradioComponents:
+    """
+    A dataclass representing the components of how to display the font.
+    """
+    font: FontGradioComponents
+    drop_shadow: FontDropShadowGradioComponents
+    background: FontBackgroundGradioComponents
+
+
+@dataclass
+class ColorOpacityGradioComponents:
+    """
+    A dataclass representing the components of the color and opacity editor.
+    """
+    color: gr.ColorPicker
+    opacity: gr.Slider
+
+
+@dataclass
+class VideoOutputGradioComponents:
+    """
+    A dataclass representing the components of the video output.
+    """
+    video: gr.Video
+    name: gr.Textbox
+    suffix: gr.Dropdown
+    save: gr.Button
+
+
+@dataclass
+class Time:
+    """
+    A dataclass representing a time.
+    """
+    hours: int
+    minutes: int
+    seconds: int
+
+    def __int__(self) -> int:
+        """
+        Returns the time in seconds.
+        """
+        return self.hours * 3600 + self.minutes * 60 + self.seconds
 
 
 RGBColor = Union[str, tuple[int, int, int]]

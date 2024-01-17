@@ -7,13 +7,14 @@ import re
 import time
 import tempfile
 from typing import List, Dict, Optional
+from dataclasses import dataclass
 import cv2
 from moviepy.editor import AudioFileClip
 import numpy as np
 import librosa
 from api import chatgpt as chatgpt_api
 from processing import image as image_processing
-from utils import progress, visualizer, font_manager, image as image_utils, dataclasses
+from utils import progress, visualizer, font_manager, image as image_utils, dataclasses as local_dataclasses
 
 
 def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]], np.ndarray):
@@ -45,16 +46,25 @@ def analyze_audio(audio_path: str, target_fps: int) -> (List[Dict[float, float]]
     return downsampled_frequency_loudness, downsampled_times
 
 
-def _audio_visualizer_generator(frame_size: dataclasses.Size, audio_path: str, audio_length: int, fps: int,
-                                audio_visualizer: dataclasses.RGBOpacity, dot_size: dataclasses.MinMax,
-                                dot_count: dataclasses.RowCol, visualizer_drawing: Optional[str] = None) -> str:
+@dataclass
+class AudioVisualizerDotData:
+    """
+    A dataclass representing the data for the audio visualizer's dots.
+    """
+    size: local_dataclasses.MinMax
+    count: local_dataclasses.RowCol
+    color: local_dataclasses.RGBColor
+    opacity: int
+    visualizer_drawing: Optional[str] = None
+    visualizer_drawing_overlap: bool = False
+
+
+def _audio_visualizer_generator(frame_size: local_dataclasses.Size, audio_path: str, audio_length: int, fps: int,
+                                dot_data: AudioVisualizerDotData) -> str:
     print("Generating audio visualizer...")
-
-    audio_visualizer_color_and_opacity = image_utils.get_rgba(audio_visualizer.color, audio_visualizer.opacity)
-
     custom_drawing = None
-    if visualizer_drawing is not None and visualizer_drawing != "":
-        custom_drawing = cv2.imread(visualizer_drawing, cv2.IMREAD_UNCHANGED)
+    if dot_data.visualizer_drawing is not None and dot_data.visualizer_drawing != "":
+        custom_drawing = cv2.imread(dot_data.visualizer_drawing, cv2.IMREAD_UNCHANGED)
         if custom_drawing.shape[2] == 3:
             custom_drawing = cv2.cvtColor(custom_drawing, cv2.COLOR_BGR2RGBA)
         else:
@@ -65,9 +75,9 @@ def _audio_visualizer_generator(frame_size: dataclasses.Size, audio_path: str, a
 
     total_iterations = len(times)
     start_time = time.time()
-    vis = visualizer.Visualizer(size=dataclasses.Size(frame_size.width, frame_size.height),
-                                dot_size=dot_size, color=audio_visualizer_color_and_opacity,
-                                dot_count=dataclasses.RowCol(dot_count.row, dot_count.col))
+    vis = visualizer.Visualizer(size=local_dataclasses.Size(frame_size.width, frame_size.height),
+                                dot_size=dot_data.size, color=image_utils.get_rgba(dot_data.color, dot_data.opacity),
+                                dot_count=local_dataclasses.RowCol(dot_data.count.row, dot_data.count.col))
     vis.initialize_static_values()
     temp_visualizer_images_dir = tempfile.mkdtemp()
     os.makedirs(temp_visualizer_images_dir, exist_ok=True)
@@ -75,7 +85,8 @@ def _audio_visualizer_generator(frame_size: dataclasses.Size, audio_path: str, a
         if time_point > audio_length:
             break
         frame = frame_cache.copy()
-        vis.draw_visualizer(frame, frequency_loudness[i], custom_drawing=custom_drawing)
+        vis.draw_visualizer(frame, frequency_loudness[i], custom_drawing=custom_drawing,
+                            custom_drawing_overlap=dot_data.visualizer_drawing_overlap)
         frame_np = np.array(frame)
         frame_np = cv2.cvtColor(frame_np, cv2.COLOR_RGBA2BGRA)
         frame_filename = f'{temp_visualizer_images_dir}/frame_{i:05d}.png'
@@ -87,23 +98,133 @@ def _audio_visualizer_generator(frame_size: dataclasses.Size, audio_path: str, a
     return temp_visualizer_images_dir
 
 
-def create_music_video(
+def _get_video_background(image_path: str, frame_size: local_dataclasses.Size,
+                          background_overlay_color_opacity: local_dataclasses.RGBOpacity) -> np.ndarray:
+    """
+    Gets the background for the video, which is a gaussian blurred version of the cover image stretched with a color
+    overlay.
+    :param image_path: The path to the image to use background.
+    :param frame_size: The size of the frame to use for the background.
+    :param background_overlay_color_opacity: The color and opacity to use for the background overlay.
+    :return:
+    """
+    background = cv2.imread(image_path)
+    background = cv2.resize(background, (frame_size.width, frame_size.height))
+    background = cv2.GaussianBlur(background, (49, 49), 0)
+    if background.shape[2] == 3:
+        background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
+    overlay = np.full((frame_size.height, frame_size.width, 4),
+                      image_utils.get_bgra(background_overlay_color_opacity.color,
+                                           background_overlay_color_opacity.opacity),
+                      dtype=np.uint8)
+    alpha_overlay = overlay[:, :, 3] / 255.0
+    alpha_background = background[:, :, 3] / 255.0
+    for c in range(0, 3):
+        background[:, :, c] = (alpha_overlay * overlay[:, :, c] +
+                               alpha_background * (1 - alpha_overlay) * background[:, :, c])
+    background[:, :, 3] = (alpha_overlay + alpha_background * (1 - alpha_overlay)) * 255
+    return background
+
+
+def _generate_final_video(background_image_path: str, visualizer_frames_dir: Optional[str], cover_image_path: str,
+                          audio_path: str, fps: int) -> str:
+    """
+    Generates the final video using the given parameters with ffmpeg.
+    :param background_image_path: The path to the background image to use for the video.
+    :param visualizer_frames_dir: The path to the directory containing the audio visualizer frames.
+    :param cover_image_path: The path to the cover image to use for the video.
+    :param audio_path: The path to the audio file to use for the video.
+    :param fps: The frames per second to use for the video.
+    :return:
+    """
+    temp_final_video_path = tempfile.mktemp(suffix=".mp4")
+
+    audio_clip = AudioFileClip(audio_path)
+    ffmpeg_commands = [
+        "ffmpeg", "-y",
+        "-loop", "1",
+        "-i", background_image_path,
+    ]
+
+    if visualizer_frames_dir is not None:
+        ffmpeg_commands.extend([
+            "-framerate", str(fps),
+            "-i", f'{visualizer_frames_dir}/frame_%05d.png',
+        ])
+        filter_complex = "[0][1]overlay=format=auto[bg];[bg][2]overlay=format=auto"
+    else:
+        filter_complex = "[0][1]overlay=format=auto"
+
+    ffmpeg_commands.extend([
+        "-framerate", str(fps),
+        "-i", cover_image_path,
+        "-i", audio_path,
+        "-filter_complex", filter_complex,
+        "-map", "3:a" if visualizer_frames_dir is not None else "2:a",
+        "-c:v", "libx264",
+        "-c:a", "aac",
+        "-strict", "experimental",
+        "-t", str(audio_clip.duration),
+        "-hide_banner",
+        "-framerate", str(fps),
+        '-pix_fmt', 'yuv420p',
+        temp_final_video_path
+    ])
+    print("Generating final video...")
+
+    duration_regex = re.compile(r"Duration: (\d\d):(\d\d):(\d\d)\.\d\d")
+    time_regex = re.compile(r"time=(\d\d):(\d\d):(\d\d)\.\d\d")
+
+    ffmpeg_start_time = time.time()
+    with subprocess.Popen(ffmpeg_commands, stderr=subprocess.PIPE, text=True) as ffmpeg_process:
+        for line in ffmpeg_process.stderr:
+            # Extract total duration of the video
+            duration_match = duration_regex.search(line)
+            if duration_match:
+                duration_match_groups = duration_match.groups()
+                curr_duration = local_dataclasses.Time(
+                    hours=int(duration_match_groups[0]),
+                    minutes=int(duration_match_groups[1]),
+                    seconds=int(duration_match_groups[2])
+                )
+
+            # Extract current time of encoding
+            time_match = time_regex.search(line)
+            if time_match and int(curr_duration) > 0:
+                time_match_groups = time_match.groups()
+                curr_time = local_dataclasses.Time(
+                    hours=int(time_match_groups[0]),
+                    minutes=int(time_match_groups[1]),
+                    seconds=int(time_match_groups[2])
+                )
+                progress.print_progress_bar(int(curr_time), int(curr_duration), start_time=ffmpeg_start_time)
+
+    progress.print_progress_bar(100, 100, end='\n', start_time=ffmpeg_start_time)
+
+    return temp_final_video_path
+
+
+def create_music_video(  # pylint: disable=too-many-locals
         image_path: str, audio_path: str, fps: int,
         artist: str, artist_font_type: str, artist_font_style: str, artist_font_size: int,
-        artist_font_color: dataclasses.RGBColor, artist_font_opacity: int, artist_shadow_enabled: bool,
-        artist_shadow_color: dataclasses.RGBColor, artist_shadow_opacity: int, artist_shadow_radius: int,
-        artist_background_enabled: bool, artist_background_color: dataclasses.RGBColor, artist_background_opacity: int,
-        song: str, song_font_type: str, song_font_style: str, song_font_size: int,
-        song_font_color: dataclasses.RGBColor, song_font_opacity: int, song_shadow_enabled: bool,
-        song_shadow_color: dataclasses.RGBColor, song_shadow_opacity: int, song_shadow_radius: int,
-        song_background_enabled: bool, song_background_color: dataclasses.RGBColor, song_background_opacity: int,
-        background_color: dataclasses.RGBColor = (0, 0, 0), background_opacity: int = 66,
-        generate_audio_visualizer: bool = False, audio_visualizer_color: dataclasses.RGBColor = (255, 255, 255),
+        artist_font_color: local_dataclasses.RGBColor, artist_font_opacity: int, artist_shadow_enabled: bool,
+        artist_shadow_color: local_dataclasses.RGBColor, artist_shadow_opacity: int, artist_shadow_radius: int,
+        artist_background_enabled: bool, artist_background_color: local_dataclasses.RGBColor,
+        artist_background_opacity: int, song: str, song_font_type: str, song_font_style: str, song_font_size: int,
+        song_font_color: local_dataclasses.RGBColor, song_font_opacity: int, song_shadow_enabled: bool,
+        song_shadow_color: local_dataclasses.RGBColor, song_shadow_opacity: int, song_shadow_radius: int,
+        song_background_enabled: bool, song_background_color: local_dataclasses.RGBColor, song_background_opacity: int,
+        background_color: local_dataclasses.RGBColor = (0, 0, 0), background_opacity: int = 66,
+        generate_audio_visualizer: bool = False, audio_visualizer_color: local_dataclasses.RGBColor = (255, 255, 255),
         audio_visualizer_opacity: int = 100, visualizer_drawing: Optional[str] = None,
-        audio_visualizer_num_rows: int = 90, audio_visualizer_num_columns: int = 65, audio_visualizer_min_size: int = 1,
+        visualizer_drawing_overlap: bool = False, audio_visualizer_num_rows: int = 90,
+        audio_visualizer_num_columns: int = 65, audio_visualizer_min_size: int = 1,
         audio_visualizer_max_size: int = 7) -> Optional[str]:
     """
     Creates a music video using the given parameters.
+    :param visualizer_drawing_overlap: Whether to overlap the visualizer drawings onto one-another with alpha-blending.
+      This is only noticeable on images with transparency and is a slow process, so if your visualizer drawings are
+      not transparent, it is recommended to set this to False.
     :param image_path: The path to the image to use as the cover + background for the video.
     :param audio_path: The path to the audio file to use for the video.
     :param fps: The frames per second to use for the video.
@@ -145,29 +266,22 @@ def create_music_video(
     :param audio_visualizer_max_size: The maximum size to use for the audio visualizer's drawings (peak loudness).
     :return: The path to the generated video, or None if there was an error.
     """
-    if image_path is None:
-        print("No cover image for the video.")
-        return None
-    if audio_path is None:
-        print("No audio to add to the video.")
+    if image_path is None or audio_path is None:
+        print("No cover image and/or audio for the video.")
         return None
 
     # Could probably expand to 4k, but unnecessary for this type of music video
     # Maybe in a future iteration it could be worth it
-    frame_size = dataclasses.Size(1920, 1080)
+    frame_size = local_dataclasses.Size(1920, 1080)
 
     # Set up cover
-    cover = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    if cover.shape[2] == 3:
-        cover = cv2.cvtColor(cover, cv2.COLOR_BGR2RGBA)
-    else:
-        cover = cv2.cvtColor(cover, cv2.COLOR_BGRA2RGBA)
+    cover = image_utils.open_image_as_rgba(image_path)
 
     # Create canvas with 4 channels (RGBA)
     canvas = np.zeros((frame_size.height, frame_size.width, 4), dtype=np.uint8)
 
     # Calculate dimensions for resizing the cover to fit within the canvas while maintaining its aspect ratio
-    cover_size = dataclasses.Size(cover.shape[1], cover.shape[0])
+    cover_size = local_dataclasses.Size(cover.shape[1], cover.shape[0])
     resize_factor = min(frame_size.width / cover_size.width, frame_size.height / cover_size.height)
     resize_factor *= (7 / 10)
     cover_size.width = int(cover_size.width * resize_factor)
@@ -183,32 +297,28 @@ def create_music_video(
     audio_clip = AudioFileClip(audio_path)
 
     # Add video background
-    background = cv2.imread(image_path)
-    background = cv2.resize(background, (frame_size.width, frame_size.height))
-    background = cv2.GaussianBlur(background, (49, 49), 0)
-    if background.shape[2] == 3:
-        background = cv2.cvtColor(background, cv2.COLOR_BGR2BGRA)
-    background_color_overlay = image_utils.get_bgra(background_color, background_opacity)
-    overlay = np.full((frame_size.height, frame_size.width, 4), background_color_overlay, dtype=np.uint8)
-    alpha_overlay = overlay[:, :, 3] / 255.0
-    alpha_background = background[:, :, 3] / 255.0
-    for c in range(0, 3):
-        background[:, :, c] = (alpha_overlay * overlay[:, :, c] +
-                               alpha_background * (1 - alpha_overlay) * background[:, :, c])
-    background[:, :, 3] = (alpha_overlay + alpha_background * (1 - alpha_overlay)) * 255
+    background = _get_video_background(image_path, frame_size,
+                                       local_dataclasses.RGBOpacity(background_color, background_opacity))
     background_bgr = cv2.cvtColor(background, cv2.COLOR_BGRA2BGR)
     tmp_background_image_path = tempfile.mktemp(suffix=".png")
     cv2.imwrite(tmp_background_image_path, background_bgr)
 
+    temp_visualizer_images_dir = None
     if generate_audio_visualizer:
         temp_visualizer_images_dir = _audio_visualizer_generator(frame_size, audio_path, audio_clip.duration, fps,
-                                                                 dataclasses.RGBOpacity(audio_visualizer_color,
-                                                                                        audio_visualizer_opacity),
-                                                                 dataclasses.MinMax(audio_visualizer_min_size,
-                                                                                    audio_visualizer_max_size),
-                                                                 dataclasses.RowCol(audio_visualizer_num_rows,
-                                                                                    audio_visualizer_num_columns),
-                                                                 visualizer_drawing=visualizer_drawing)
+                                                                 AudioVisualizerDotData(
+                                                                     size=local_dataclasses.MinMax(
+                                                                         audio_visualizer_min_size,
+                                                                         audio_visualizer_max_size),
+                                                                     color=audio_visualizer_color,
+                                                                     opacity=audio_visualizer_opacity,
+                                                                     count=local_dataclasses.RowCol(
+                                                                         audio_visualizer_num_rows,
+                                                                         audio_visualizer_num_columns),
+                                                                     visualizer_drawing=visualizer_drawing,
+                                                                     visualizer_drawing_overlap=\
+                                                                         visualizer_drawing_overlap)
+                                                                 )
 
     # Add text
     font_families = font_manager.get_fonts()
@@ -240,96 +350,19 @@ def create_music_video(
                                                                                       artist_shadow_opacity),
                                                     show_background=artist_background_enabled,
                                                     background_color=image_utils.get_rgba(
-                                                                    artist_background_color, artist_background_opacity))
+                                                        artist_background_color, artist_background_opacity))
 
-    text_np = np.array(text_canvas)
-    np_canvas = np.array(canvas)
-    # Normalize the alpha channels
-    alpha_text = text_np[:, :, 3] / 255.0
-    alpha_canvas = np_canvas[:, :, 3] / 255.0
-    alpha_final = alpha_text + alpha_canvas * (1 - alpha_text)
-
-    canvas_final = np.zeros_like(np_canvas)
-    # alpha blend
-    for c in range(3): # Loop over color (non-alpha) channels
-        canvas_final[:, :, c] = (alpha_text * text_np[:, :, c] + alpha_canvas * (1 - alpha_text) *
-                                 np_canvas[:, :, c]) / alpha_final
-    canvas_final[:, :, 3] = alpha_final * 255
-    canvas_final[:, :, :3][alpha_final == 0] = 0
-
+    canvas_final = image_utils.blend_alphas(np.array(text_canvas), np.array(canvas))
     temp_canvas_image_path = tempfile.mktemp(suffix=".png")
     # Convert to BGR for OpenCV
     canvas_final = cv2.cvtColor(canvas_final, cv2.COLOR_RGBA2BGRA)
     cv2.imwrite(temp_canvas_image_path, canvas_final)
 
-    temp_final_video_path = tempfile.mktemp(suffix=".mp4")
+    temp_final_video_path = _generate_final_video(tmp_background_image_path, temp_visualizer_images_dir,
+                                                  temp_canvas_image_path, audio_path, fps)
 
-    # set up the background video commands
-    ffmpeg_commands = [
-        "ffmpeg", "-y",
-        "-loop", "1",
-        "-i", tmp_background_image_path,
-    ]
-
-    if generate_audio_visualizer:
-        ffmpeg_commands.extend([
-            "-framerate", str(fps),
-            "-i", f'{temp_visualizer_images_dir}/frame_%05d.png',
-        ])
-        filter_complex = "[0][1]overlay=format=auto[bg];[bg][2]overlay=format=auto"
-        audio_input_map = "3:a"
-    else:
-        filter_complex = "[0][1]overlay=format=auto"
-        audio_input_map = "2:a"
-
-    ffmpeg_commands.extend([
-        "-framerate", str(fps),
-        "-i", temp_canvas_image_path,
-        "-i", audio_path,
-        "-filter_complex", filter_complex,
-        "-map", audio_input_map,
-        "-c:v", "libx264",
-        "-c:a", "aac",
-        "-strict", "experimental",
-        "-t", str(audio_clip.duration),
-        "-hide_banner",
-        "-framerate", str(fps),
-        '-pix_fmt', 'yuv420p',
-        temp_final_video_path
-    ])
-    print("Generating final video...")
-    ffmpeg_process = subprocess.Popen(ffmpeg_commands, stderr=subprocess.PIPE, text=True)
-
-    duration_regex = re.compile(r"Duration: (\d\d):(\d\d):(\d\d)\.\d\d")
-    time_regex = re.compile(r"time=(\d\d):(\d\d):(\d\d)\.\d\d")
-    total_duration_in_seconds = 0
-
-    ffmpeg_start_time = time.time()
-    while True:
-        line = ffmpeg_process.stderr.readline()
-        if not line:
-            break
-
-        # Extract total duration of the video
-        duration_match = duration_regex.search(line)
-        if duration_match:
-            hours, minutes, seconds = map(int, duration_match.groups())
-            total_duration_in_seconds = hours * 3600 + minutes * 60 + seconds
-
-        # Extract current time of encoding
-        time_match = time_regex.search(line)
-        if time_match and total_duration_in_seconds > 0:
-            hours, minutes, seconds = map(int, time_match.groups())
-            current_time = hours * 3600 + minutes * 60 + seconds
-            progress.print_progress_bar(current_time, total_duration_in_seconds, start_time=ffmpeg_start_time)
-
-    ffmpeg_process.wait()
-    if ffmpeg_process.returncode != 0:
-        raise subprocess.CalledProcessError(ffmpeg_process.returncode, ffmpeg_commands)
-    progress.print_progress_bar(100, 100, end='\n', start_time=ffmpeg_start_time)
-    print("Done generating final video!\n")
     # clean up the original frames
-    if generate_audio_visualizer:
+    if temp_visualizer_images_dir is not None:
         for file in os.listdir(temp_visualizer_images_dir):
             os.remove(os.path.join(temp_visualizer_images_dir, file))
         os.rmdir(temp_visualizer_images_dir)
@@ -353,11 +386,13 @@ def generate_cover_image(api_key: str, api_model: str, prompt: str) -> Optional[
     return chatgpt_api.url_to_gradio_image_name(image_url)
 
 
+# pylint: disable=too-many-locals
 def process(image_path: str, artist: str, song: str,
-            af_family: str, af_style: str, afs: int, afc: dataclasses.RGBColor, afo: int, ase: bool,
-            asc: dataclasses.RGBColor, aso: int, asr: Optional[int], abe: bool, abc: dataclasses.RGBColor, abo: int,
-            sf_family: str, sf_style: str, sfs: int, sfc: dataclasses.RGBColor, sfo: int, sse: bool,
-            ssc: dataclasses.RGBColor, sso: int, ssr: Optional[int], sbe: bool, sbc: dataclasses.RGBColor, sbo: int) \
+            af_family: str, af_style: str, afs: int, afc: local_dataclasses.RGBColor, afo: int, ase: bool,
+            asc: local_dataclasses.RGBColor, aso: int, asr: Optional[int], abe: bool, abc: local_dataclasses.RGBColor,
+            abo: int, sf_family: str, sf_style: str, sfs: int, sfc: local_dataclasses.RGBColor, sfo: int, sse: bool,
+            ssc: local_dataclasses.RGBColor, sso: int, ssr: Optional[int], sbe: bool, sbc: local_dataclasses.RGBColor,
+            sbo: int) \
         -> Optional[np.ndarray]:
     """
     Processes the image at the given path (by adding the requested text) and returns the processed image.

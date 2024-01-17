@@ -8,13 +8,13 @@ import os
 from typing import Optional, Literal
 import gradio as gr
 from moviepy.editor import VideoFileClip
-from utils import path_handler
+from utils import path_handler, dataclasses
 
 VIDEO_FOLDER = "videos"
 default_path = os.path.join(path_handler.get_default_path(), VIDEO_FOLDER)
 
 
-def render_video_output() -> (gr.Video, gr.Textbox, gr.Dropdown, gr.Button):
+def render_video_output() -> dataclasses.VideoOutputGradioComponents:
     """
     Creates and returns a set of Gradio interface components for video output.
 
@@ -32,7 +32,7 @@ def render_video_output() -> (gr.Video, gr.Textbox, gr.Dropdown, gr.Button):
         video_suffix = gr.Dropdown([".mp4", ".mov"], value=".mp4", label="File Type", allow_custom_value=False)
     save_video_button = gr.Button("Save To Disk", variant="primary")
 
-    return video_output, video_name, video_suffix, save_video_button
+    return dataclasses.VideoOutputGradioComponents(video_output, video_name, video_suffix, save_video_button)
 
 
 def save_video_to_disk(video_path: str, name: Optional[str] = None, video_suffix: Literal[".mp4", ".mov"] = ".mp4",

@@ -81,11 +81,11 @@ def render_batch_section() -> (gr.File, gr.Code):
         with gr.Column(scale=3):
             gr.Markdown("# Parameters")
             with gr.Row(equal_height=False):
-                name_font, name_shadow, name_background = image_processing.render_text_editor_parameters("Name")
-                desc_font, desc_shadow, desc_background = image_processing.render_text_editor_parameters("Description")
+                name_font_display = image_processing.render_text_editor_parameters("Name")
+                desc_font_display = image_processing.render_text_editor_parameters("Description")
             with gr.Row(equal_height=False):
-                asc_font, asc_shadow, asc_background = image_processing.render_text_editor_parameters("Association")
-                rate_font, rate_shadow, rate_background = image_processing.render_text_editor_parameters("Rating")
+                asc_font_display = image_processing.render_text_editor_parameters("Association")
+                rate_font_display = image_processing.render_text_editor_parameters("Rating")
 
         with gr.Column(scale=1):
             gr.Markdown("# Output")
@@ -99,26 +99,46 @@ def render_batch_section() -> (gr.File, gr.Code):
     save_button.click(image_processing.save_images_to_disk, inputs=[output_preview, image_type],
                       outputs=[])
     process_button.click(listicle_utils.process, inputs=[input_batch_images, input_batch_json,
-                                                         name_font.family, name_font.style, name_font.size,
-                                                         name_font.color, name_font.opacity, name_shadow.enabled,
-                                                         name_shadow.color, name_shadow.opacity, name_shadow.radius,
-                                                         name_background.enabled, name_background.color,
-                                                         name_background.opacity,
-                                                         desc_font.family, desc_font.style, desc_font.size,
-                                                         desc_font.color, desc_font.opacity, desc_shadow.enabled,
-                                                         desc_shadow.color, desc_shadow.opacity, desc_shadow.radius,
-                                                         desc_background.enabled, desc_background.color,
-                                                         desc_background.opacity,
-                                                         asc_font.family, asc_font.style, asc_font.size,
-                                                         asc_font.color, asc_font.opacity, asc_shadow.enabled,
-                                                         asc_shadow.color, asc_shadow.opacity, asc_shadow.radius,
-                                                         asc_background.enabled, asc_background.color,
-                                                         asc_background.opacity,
-                                                         rate_font.family, rate_font.style, rate_font.size,
-                                                         rate_font.color, rate_font.opacity, rate_shadow.enabled,
-                                                         rate_shadow.color, rate_shadow.opacity, rate_shadow.radius,
-                                                         rate_background.enabled, rate_background.color,
-                                                         rate_background.opacity,
+                                                         name_font_display.font.family, name_font_display.font.style,
+                                                         name_font_display.font.size, name_font_display.font.color,
+                                                         name_font_display.font.opacity,
+                                                         name_font_display.drop_shadow.enabled,
+                                                         name_font_display.drop_shadow.color,
+                                                         name_font_display.drop_shadow.opacity,
+                                                         name_font_display.drop_shadow.radius,
+                                                         name_font_display.background.enabled,
+                                                         name_font_display.background.color,
+                                                         name_font_display.background.opacity,
+                                                         desc_font_display.font.family, desc_font_display.font.style,
+                                                         desc_font_display.font.size, desc_font_display.font.color,
+                                                         desc_font_display.font.opacity,
+                                                         desc_font_display.drop_shadow.enabled,
+                                                         desc_font_display.drop_shadow.color,
+                                                         desc_font_display.drop_shadow.opacity,
+                                                         desc_font_display.drop_shadow.radius,
+                                                         desc_font_display.background.enabled,
+                                                         desc_font_display.background.color,
+                                                         desc_font_display.background.opacity,
+                                                         asc_font_display.font.family, asc_font_display.font.style,
+                                                         asc_font_display.font.size, asc_font_display.font.color,
+                                                         asc_font_display.font.opacity,
+                                                         asc_font_display.drop_shadow.enabled,
+                                                         asc_font_display.drop_shadow.color,
+                                                         asc_font_display.drop_shadow.opacity,
+                                                         asc_font_display.drop_shadow.radius,
+                                                         asc_font_display.background.enabled,
+                                                         asc_font_display.background.color,
+                                                         asc_font_display.background.opacity,
+                                                         rate_font_display.font.family, rate_font_display.font.style,
+                                                         rate_font_display.font.size, rate_font_display.font.color,
+                                                         rate_font_display.font.opacity,
+                                                         rate_font_display.drop_shadow.enabled,
+                                                         rate_font_display.drop_shadow.color,
+                                                         rate_font_display.drop_shadow.opacity,
+                                                         rate_font_display.drop_shadow.radius,
+                                                         rate_font_display.background.enabled,
+                                                         rate_font_display.background.color,
+                                                         rate_font_display.background.opacity,
                                                          ], outputs=[output_preview])
 
     return input_batch_images, input_batch_json

@@ -11,6 +11,7 @@ from utils import font_manager, image as image_utils, dataclasses
 import api.chatgpt as chatgpt_api
 
 
+# pylint: disable=too-many-locals
 def process(image_files: list[Any], json_data: str,
             nf_family: str, nf_style: str, nfs: int, nfc: dataclasses.RGBColor, nfo: int, nse: bool,
             nsc: dataclasses.RGBColor, nso: int, nsr, nbe: bool, nbc: dataclasses.RGBColor, nbo: int,
