@@ -178,8 +178,8 @@ def save_images_to_disk(images: gr.data_classes.RootModel, image_type: gr.Dropdo
     return save_dir
 
 
-def save_image_to_disk(image_path: str, name: Optional[str] = None, save_dir: str = default_path,
-                       image_suffix: Literal[".png", ".jpg", ".webp"] = ".png") -> Optional[str]:
+def save_image_to_disk(image_path: str, name: Optional[str] = None, image_suffix: Literal[".png", ".jpg", ".webp"] = \
+                       ".png", save_dir: str = default_path) -> Optional[str]:
     """
     Saves an image to disk.
     :param image_path: The path to the temporary image.
