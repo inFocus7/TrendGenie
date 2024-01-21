@@ -2,6 +2,7 @@
 This file contains the functions and utilities used to generate the music video and cover image.
 """
 import os
+import random
 import subprocess
 import re
 import time
@@ -457,3 +458,117 @@ def process(image_path: str, artist: str, song: str,
                                             x_center=True)
 
     return img
+
+
+def _select_random_segment(audio_path: str, duration: int) -> float:
+    """
+    Selects a random segment from the audio file.
+
+    :param audio_path: Path to the audio file.
+    :param duration: Duration of the segment in seconds.
+    :return: Starting time of the random segment in seconds.
+    """
+    audio_clip = AudioFileClip(audio_path)
+    max_start = max(0, audio_clip.duration - duration)
+    start_time = random.uniform(0, max_start)
+    return start_time
+
+
+def _extract_random_audio_segment(audio_path: str, duration: int) -> str:
+    """
+    Extracts a random N-second segment from the audio file.
+
+    :param audio_path: Path to the audio file.
+    :param duration: Duration of the segment in seconds.
+    :return: Path to the extracted audio segment.
+    """
+    start_time = _select_random_segment(audio_path, duration)
+    end_time = start_time + duration
+    audio_path_suffix = os.path.splitext(audio_path)[1]
+    temp_audio_path = tempfile.mktemp(suffix=audio_path_suffix)
+
+    # Use ffmpeg to extract the segment
+    ffmpeg_command = [
+        'ffmpeg', '-y', '-i', audio_path, '-ss', str(start_time), '-to', str(end_time),
+        '-c', 'copy', temp_audio_path
+    ]
+    subprocess.run(ffmpeg_command, check=True)
+    return temp_audio_path
+
+
+def create_music_video_preview(  # pylint: disable=too-many-locals
+        image_path: str, audio_path: str, fps: int, preview_duration: int,
+        artist: str, artist_font_type: str, artist_font_style: str, artist_font_size: int,
+        artist_font_color: local_dataclasses.RGBColor, artist_font_opacity: int, artist_shadow_enabled: bool,
+        artist_shadow_color: local_dataclasses.RGBColor, artist_shadow_opacity: int, artist_shadow_radius: int,
+        artist_background_enabled: bool, artist_background_color: local_dataclasses.RGBColor,
+        artist_background_opacity: int, song: str, song_font_type: str, song_font_style: str, song_font_size: int,
+        song_font_color: local_dataclasses.RGBColor, song_font_opacity: int, song_shadow_enabled: bool,
+        song_shadow_color: local_dataclasses.RGBColor, song_shadow_opacity: int, song_shadow_radius: int,
+        song_background_enabled: bool, song_background_color: local_dataclasses.RGBColor, song_background_opacity: int,
+        background_color: local_dataclasses.RGBColor = (0, 0, 0), background_opacity: int = 66,
+        generate_audio_visualizer: bool = False, audio_visualizer_color: local_dataclasses.RGBColor = (255, 255, 255),
+        audio_visualizer_opacity: int = 100, visualizer_drawing: Optional[str] = None,
+        visualizer_drawing_overlap: bool = False, audio_visualizer_num_rows: int = 90,
+        audio_visualizer_num_columns: int = 65, audio_visualizer_min_size: int = 1,
+        audio_visualizer_max_size: int = 7) -> Optional[str]:
+    """
+    Creates a music video preview using the given parameters.
+    :param preview_duration: The duration of the preview in seconds.
+    :param visualizer_drawing_overlap: Whether to overlap the visualizer drawings onto one-another with alpha-blending.
+      This is only noticeable on images with transparency and is a slow process, so if your visualizer drawings are
+      not transparent, it is recommended to set this to False.
+    :param image_path: The path to the image to use as the cover + background for the video.
+    :param audio_path: The path to the audio file to use for the video.
+    :param fps: The frames per second to use for the video.
+    :param artist: The artist name to add to the video.
+    :param artist_font_type: The font family to use for the artist name.
+    :param artist_font_style: The font style to use for the artist name.
+    :param artist_font_size: The font size to use for the artist name.
+    :param artist_font_color: The font color to use for the artist name.
+    :param artist_font_opacity: The font opacity to use for the artist name.
+    :param artist_shadow_enabled: Whether to show a shadow for the artist name.
+    :param artist_shadow_color: The shadow color to use for the artist name.
+    :param artist_shadow_opacity: The shadow opacity to use for the artist name.
+    :param artist_shadow_radius: The shadow radius to use for the artist name.
+    :param artist_background_enabled: Whether to show a background for the artist name.
+    :param artist_background_color: The background color to use for the artist name.
+    :param artist_background_opacity: The background opacity to use for the artist name.
+    :param song: The song name to add to the video.
+    :param song_font_type: The font family to use for the song name.
+    :param song_font_style: The font style to use for the song name.
+    :param song_font_size: The font size to use for the song name.
+    :param song_font_color: The font color to use for the song name.
+    :param song_font_opacity: The font opacity to use for the song name.
+    :param song_shadow_enabled: Whether to show a shadow for the song name.
+    :param song_shadow_color: The shadow color to use for the song name.
+    :param song_shadow_opacity: The shadow opacity to use for the song name.
+    :param song_shadow_radius: The shadow radius to use for the song name.
+    :param song_background_enabled: Whether to show a background for the song name.
+    :param song_background_color: The background color to use for the song name.
+    :param song_background_opacity: The background opacity to use for the song name.
+    :param background_color: The background color to use for the video.
+    :param background_opacity: The background opacity to use for the video.
+    :param generate_audio_visualizer: Whether to generate an audio visualizer for the video.
+    :param audio_visualizer_color: The color to use for the audio visualizer.
+    :param audio_visualizer_opacity: The opacity to use for the audio visualizer.
+    :param visualizer_drawing: The path to the image to use for the audio visualizer. If None, uses a circle.
+    :param audio_visualizer_num_rows: The number of rows to use for the audio visualizer's drawings.
+    :param audio_visualizer_num_columns: The number of columns to use for the audio visualizer's drawings.
+    :param audio_visualizer_min_size: The minimum size to use for the audio visualizer's drawings (silence).
+    :param audio_visualizer_max_size: The maximum size to use for the audio visualizer's drawings (peak loudness).
+    :return: The path to the generated video, or None if there was an error.
+    """
+    audio_path = _extract_random_audio_segment(audio_path, preview_duration)
+
+    return create_music_video(image_path, audio_path, fps, artist, artist_font_type, artist_font_style,
+                              artist_font_size, artist_font_color, artist_font_opacity, artist_shadow_enabled,
+                              artist_shadow_color, artist_shadow_opacity, artist_shadow_radius,
+                              artist_background_enabled, artist_background_color, artist_background_opacity, song,
+                              song_font_type, song_font_style, song_font_size, song_font_color, song_font_opacity,
+                              song_shadow_enabled, song_shadow_color, song_shadow_opacity, song_shadow_radius,
+                              song_background_enabled, song_background_color, song_background_opacity, background_color,
+                              background_opacity, generate_audio_visualizer, audio_visualizer_color,
+                              audio_visualizer_opacity, visualizer_drawing, visualizer_drawing_overlap,
+                              audio_visualizer_num_rows, audio_visualizer_num_columns, audio_visualizer_min_size,
+                              audio_visualizer_max_size)

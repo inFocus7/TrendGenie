@@ -24,6 +24,7 @@ Before you submit your pull request, please review the following checklist:
 - [ ] I have made corresponding changes to the documentation.
 - [ ] My changes generate no new warnings.
 - [ ] I have updated the Dockerfile with any new dependencies (if applicable).
+- [ ] I have added these changes to the latest changelog for an upcoming release.
 
 # Additional context
 Add any other context about the pull request here.
