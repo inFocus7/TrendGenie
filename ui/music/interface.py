@@ -3,7 +3,7 @@ Tbe interface for the music section of the UI. This is the main piece where we d
 """
 import gradio as gr
 import utils.gradio as gru
-from ui.music.utils import generate_cover_image, process, create_music_video
+from ui.music.utils import generate_cover_image, process, create_music_video, create_music_video_preview
 import processing.video as video_processing
 import processing.image as image_processing
 import ui.components.openai as openai_components
@@ -149,9 +149,9 @@ def render_music_video_creation() -> gr.Image:
                         with gr.Row():
                             audio_visualizer_amount = dataclasses.RowColGradioComponents(
                                 row=gr.Number(value=90, label="Number of Rows", minimum=1,
-                                                                  maximum=100),
+                                              maximum=100),
                                 col=gr.Number(value=65, label="Number of Columns", minimum=1,
-                                                                     maximum=100)
+                                              maximum=100)
                             )
                         with gr.Row():
                             audio_visualizer_dot_size = dataclasses.MinMaxGradioComponents(
@@ -170,12 +170,55 @@ def render_music_video_creation() -> gr.Image:
                                                                    "transparent, leave this unchecked.")
             gru.bind_checkbox_to_visibility(generate_audio_visualizer_button, audio_visualizer_group)
 
+    with gr.Group():
+        with gr.Row():
+            create_preview_video_button = gr.Button("Create Preview", variant="secondary")
+            preview_seconds = gr.Number(value=5, label="Preview Seconds", minimum=1, maximum=10)
+
     create_video_button = gr.Button("Create Music Video", variant="primary")
 
     gr.Markdown("## Output")
     with gr.Group():
         video_data = video_processing.render_video_output()
 
+    create_preview_video_button.click(create_music_video_preview, inputs=[cover_image, audio_filepath, fps,
+                                                                          preview_seconds, artist_name,
+                                                                          artist_font_display.font.family,
+                                                                          artist_font_display.font.style,
+                                                                          artist_font_display.font.size,
+                                                                          artist_font_display.font.color,
+                                                                          artist_font_display.font.opacity,
+                                                                          artist_font_display.drop_shadow.enabled,
+                                                                          artist_font_display.drop_shadow.color,
+                                                                          artist_font_display.drop_shadow.opacity,
+                                                                          artist_font_display.drop_shadow.radius,
+                                                                          artist_font_display.background.enabled,
+                                                                          artist_font_display.background.color,
+                                                                          artist_font_display.background.opacity,
+                                                                          song_title, song_font_display.font.family,
+                                                                          song_font_display.font.style,
+                                                                          song_font_display.font.size,
+                                                                          song_font_display.font.color,
+                                                                          song_font_display.font.opacity,
+                                                                          song_font_display.drop_shadow.enabled,
+                                                                          song_font_display.drop_shadow.color,
+                                                                          song_font_display.drop_shadow.opacity,
+                                                                          song_font_display.drop_shadow.radius,
+                                                                          song_font_display.background.enabled,
+                                                                          song_font_display.background.color,
+                                                                          song_font_display.background.opacity,
+                                                                          background_color_opacity.color,
+                                                                          background_color_opacity.opacity,
+                                                                          generate_audio_visualizer_button,
+                                                                          audio_visualizer_color_opacity.color,
+                                                                          audio_visualizer_color_opacity.opacity,
+                                                                          audio_visualizer_drawing,
+                                                                          visualizer_overlay_checkbox,
+                                                                          audio_visualizer_amount.row,
+                                                                          audio_visualizer_amount.col,
+                                                                          audio_visualizer_dot_size.min,
+                                                                          audio_visualizer_dot_size.max],
+                                      outputs=[video_data.video])
     create_video_button.click(create_music_video, inputs=[cover_image, audio_filepath, fps, artist_name,
                                                           artist_font_display.font.family,
                                                           artist_font_display.font.style, artist_font_display.font.size,
