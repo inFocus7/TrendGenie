@@ -1,4 +1,5 @@
-name: Release Created
+name: Update Changelog Release Notes
+run-name: Update Release Notes (${{ github.ref_name }})
 
 on:
   release:
