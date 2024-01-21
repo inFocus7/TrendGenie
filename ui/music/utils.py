@@ -383,7 +383,7 @@ def generate_cover_image(api_key: str, api_model: str, prompt: str) -> Optional[
     if image_url is None or image_url == "":
         return None
 
-    return chatgpt_api.url_to_gradio_image_name(image_url)
+    return image_url
 
 
 # pylint: disable=too-many-locals
