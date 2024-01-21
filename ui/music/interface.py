@@ -173,7 +173,7 @@ def render_music_video_creation() -> gr.Image:
     with gr.Group():
         with gr.Row():
             create_preview_video_button = gr.Button("Create Preview", variant="secondary")
-            preview_seconds = gr.Number(value=5, label="Preview Seconds", minimum=1, maximum=10)
+            preview_seconds = gr.Number(value=5, label="Preview Duration (s)", minimum=1, maximum=10)
 
     create_video_button = gr.Button("Create Music Video", variant="primary")
 
