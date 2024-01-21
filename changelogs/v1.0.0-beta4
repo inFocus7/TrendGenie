@@ -1,0 +1,4 @@
+enhancement:
+  - Add support for video preview generation when creating a music cover video.
+ci:
+  - Add changelog generation automation.
